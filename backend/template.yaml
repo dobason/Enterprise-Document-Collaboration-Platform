@@ -1,0 +1,344 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  EDMS - Enterprise Document Management System (Serverless)
+  Stack chính: Cognito, S3, DynamoDB, API Gateway, Lambda, Step Functions, SNS, EventBridge, CloudWatch
+
+Parameters:
+  Stage:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+
+Globals:
+  Function:
+    Timeout: 10
+    MemorySize: 512
+    Tracing: Active
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref DocumentsTable
+        BUCKET_NAME: !Ref DocumentsBucket
+        SNS_TOPIC_ARN: !Ref DocEventsTopic
+  Api:
+    Cors:
+      AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+      AllowHeaders: "'Content-Type,Authorization'"
+      AllowOrigin: "'*'"
+
+Resources:
+
+  # ============ AUTH ============
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub edms-user-pool-${Stage}
+      AutoVerifiedAttributes: [email]
+      UsernameAttributes: [email]
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireNumbers: true
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref UserPool
+      ClientName: !Sub edms-web-client-${Stage}
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+
+  # ============ STORAGE ============
+  DocumentsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub edms-docs-${AWS::AccountId}-${Stage}
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 }
+      VersioningConfiguration: { Status: Enabled }
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      CorsConfiguration:
+        CorsRules:
+          - AllowedMethods: [GET, PUT, POST]
+            AllowedOrigins: ['*']
+            AllowedHeaders: ['*']
+      NotificationConfiguration:
+        EventBridgeConfiguration:
+          EventBridgeEnabled: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: ArchiveRejectedDocs
+            Status: Enabled
+            Transitions:
+              - TransitionInDays: 90
+                StorageClass: GLACIER_IR
+
+  DocumentsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub edms-documents-${Stage}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: PK, AttributeType: S }
+        - { AttributeName: SK, AttributeType: S }
+        - { AttributeName: fileType, AttributeType: S }
+        - { AttributeName: fileName, AttributeType: S }
+        - { AttributeName: status, AttributeType: S }
+        - { AttributeName: department, AttributeType: S }
+      KeySchema:
+        - { AttributeName: PK, KeyType: HASH }
+        - { AttributeName: SK, KeyType: RANGE }
+      GlobalSecondaryIndexes:
+        - IndexName: GSI-ByType
+          KeySchema:
+            - { AttributeName: fileType, KeyType: HASH }
+            - { AttributeName: fileName, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+        - IndexName: GSI-ByStatus
+          KeySchema:
+            - { AttributeName: status, KeyType: HASH }
+            - { AttributeName: department, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+
+  # ============ NOTIFICATION ============
+  DocEventsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub edms-doc-events-${Stage}
+
+  # ============ API GATEWAY ============
+  EdmsApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Stage
+      Auth:
+        DefaultAuthorizer: CognitoAuthorizer
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !GetAtt UserPool.Arn
+
+  # ============ LAMBDA FUNCTIONS ============
+  UploadInitFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub edms-upload-init-${Stage}
+      CodeUri: java/functions/upload_init/
+      Handler: com.edms.functions.uploadinit.App::handleRequest
+      Runtime: java17
+      MemorySize: 512
+      Policies:
+        - S3CrudPolicy: { BucketName: !Ref DocumentsBucket }
+      Events:
+        Api:
+          Type: Api
+          Properties: { RestApiId: !Ref EdmsApi, Path: /documents/upload-url, Method: post }
+
+  DocumentCrudFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub edms-document-crud-${Stage}
+      CodeUri: java/functions/document_crud/
+      Handler: com.edms.functions.documentcrud.App::handleRequest
+      Runtime: java17
+      MemorySize: 512
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref DocumentsTable }
+        - S3ReadPolicy: { BucketName: !Ref DocumentsBucket }
+      Events:
+        S3ObjectCreated:
+          Type: EventBridgeRule
+          Properties:
+            Pattern:
+              source: [aws.s3]
+              detail-type: [Object Created]
+              detail:
+                bucket:
+                  name: [!Ref DocumentsBucket]
+        ApiGet:
+          Type: Api
+          Properties: { RestApiId: !Ref EdmsApi, Path: "/documents/{docId}", Method: get }
+        ApiDelete:
+          Type: Api
+          Properties: { RestApiId: !Ref EdmsApi, Path: "/documents/{docId}", Method: delete }
+
+  ListDocumentsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub edms-list-documents-${Stage}
+      CodeUri: java/functions/list_documents/
+      Handler: com.edms.functions.listdocuments.App::handleRequest
+      Runtime: java17
+      MemorySize: 512
+      Policies:
+        - DynamoDBReadPolicy: { TableName: !Ref DocumentsTable }
+      Events:
+        Api:
+          Type: Api
+          Properties: { RestApiId: !Ref EdmsApi, Path: /documents, Method: get }
+
+  FolderMgmtFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub edms-folder-mgmt-${Stage}
+      CodeUri: java/functions/folder_mgmt/
+      Handler: com.edms.functions.foldermgmt.App::handleRequest
+      Runtime: java17
+      MemorySize: 512
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref DocumentsTable }
+      Events:
+        Api:
+          Type: Api
+          Properties: { RestApiId: !Ref EdmsApi, Path: /folders, Method: post }
+
+  SearchFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub edms-search-${Stage}
+      CodeUri: java/functions/search/
+      Handler: com.edms.functions.search.App::handleRequest
+      Runtime: java17
+      MemorySize: 512
+      Policies:
+        - DynamoDBReadPolicy: { TableName: !Ref DocumentsTable }
+      Events:
+        Api:
+          Type: Api
+          Properties: { RestApiId: !Ref EdmsApi, Path: /documents/search, Method: get }
+
+  ShareLinkFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub edms-share-link-${Stage}
+      CodeUri: java/functions/share_link/
+      Handler: com.edms.functions.sharelink.App::handleRequest
+      Runtime: java17
+      MemorySize: 512
+      Policies:
+        - S3ReadPolicy: { BucketName: !Ref DocumentsBucket }
+        - DynamoDBCrudPolicy: { TableName: !Ref DocumentsTable }
+        - SNSPublishMessagePolicy: { TopicName: !GetAtt DocEventsTopic.TopicName }
+      Events:
+        Api:
+          Type: Api
+          Properties: { RestApiId: !Ref EdmsApi, Path: "/documents/{docId}/share", Method: post }
+
+  ApprovalTasksFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub edms-approval-tasks-${Stage}
+      CodeUri: java/functions/approval_tasks/
+      Handler: com.edms.functions.approvaltasks.App::handleRequest
+      Runtime: java17
+      MemorySize: 512
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref DocumentsTable }
+
+  NotifyFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub edms-notify-${Stage}
+      CodeUri: java/functions/notify/
+      Handler: com.edms.functions.notify.App::handleRequest
+      Runtime: java17
+      MemorySize: 512
+      Policies:
+        - SNSPublishMessagePolicy: { TopicName: !GetAtt DocEventsTopic.TopicName }
+        - Statement:
+            - Effect: Allow
+              Action: states:SendTaskSuccess
+              Resource: '*'
+
+  DashboardStatsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub edms-dashboard-stats-${Stage}
+      CodeUri: java/functions/dashboard_stats/
+      Handler: com.edms.functions.dashboardstats.App::handleRequest
+      Runtime: java17
+      MemorySize: 512
+      Policies:
+        - DynamoDBReadPolicy: { TableName: !Ref DocumentsTable }
+      Events:
+        Api:
+          Type: Api
+          Properties: { RestApiId: !Ref EdmsApi, Path: /dashboard/stats, Method: get }
+
+  ApprovalTriggerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub edms-approval-trigger-${Stage}
+      CodeUri: java/functions/document_crud/
+      Handler: com.edms.functions.documentcrud.App::handleTriggerApproval
+      Runtime: java17
+      MemorySize: 512
+      Environment:
+        Variables:
+          APPROVAL_STATE_MACHINE_ARN: !Ref ApprovalStateMachine
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref DocumentsTable }
+        - Statement:
+            - Effect: Allow
+              Action: states:StartExecution
+              Resource: !Ref ApprovalStateMachine
+      Events:
+        Api:
+          Type: Api
+          Properties: { RestApiId: !Ref EdmsApi, Path: "/documents/{docId}/submit-approval", Method: post }
+
+  # ============ STEP FUNCTIONS ============
+  ApprovalStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Name: !Sub edms-approval-${Stage}
+      DefinitionUri: statemachine/approval.asl.json
+      DefinitionSubstitutions:
+        ApprovalTasksFunctionArn: !GetAtt ApprovalTasksFunction.Arn
+        NotifyFunctionArn: !GetAtt NotifyFunction.Arn
+      Policies:
+        - LambdaInvokePolicy: { FunctionName: !Ref ApprovalTasksFunction }
+        - LambdaInvokePolicy: { FunctionName: !Ref NotifyFunction }
+
+  # ============ MONITORING ============
+  ErrorAlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub edms-alarms-${Stage}
+
+  DocumentCrudErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub edms-document-crud-errors-${Stage}
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - { Name: FunctionName, Value: !Ref DocumentCrudFunction }
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions: [!Ref ErrorAlarmTopic]
+
+Outputs:
+  ApiUrl:
+    Description: Base URL của API
+    Value: !Sub "https://${EdmsApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}"
+  UserPoolId:
+    Value: !Ref UserPool
+  UserPoolClientId:
+    Value: !Ref UserPoolClient
+  BucketName:
+    Value: !Ref DocumentsBucket
+  TableName:
+    Value: !Ref DocumentsTable
+  SnsTopicArn:
+    Value: !Ref DocEventsTopic

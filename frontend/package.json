@@ -1,0 +1,19 @@
+{
+  "name": "edms-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.23.0",
+    "amazon-cognito-identity-js": "^6.3.7"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test"
+  },
+  "devDependencies": {
+    "react-scripts": "5.0.1"
+  }
+}
