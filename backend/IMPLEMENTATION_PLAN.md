@@ -19,7 +19,7 @@ Tài liệu này đóng vai trò là kim chỉ nam cho các thành viên trong t
 
 ## 2. Cấu Trúc Dự Án (Hexagonal Architecture)
 
-Dự án nằm trong thư mục `backend-java`, được tổ chức thành 4 tầng chính:
+Dự án nằm trong thư mục `backend`, được tổ chức thành 4 tầng chính:
 
 ```text
 backend-java/src/main/java/com/edms/
@@ -77,7 +77,7 @@ Nhiệm vụ của team trong giai đoạn tới là hiện thực các AWS Adap
 ### Lựa Chọn 1: Chạy Siêu Tốc với H2 Database (Khuyên Dùng Để Test Nhanh)
 Database H2 chạy hoàn toàn trong RAM. Khi tắt app, dữ liệu sẽ mất. Khi bật lại, `DataSeeder` sẽ tự động đổ lại dữ liệu mẫu.
 
-1.  Mở terminal tại thư mục `backend-java`.
+1.  Mở terminal tại thư mục `backend`.
 2.  Chạy lệnh:
     ```bash
     mvn spring-boot:run -Dspring-boot.run.profiles=local
