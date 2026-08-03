@@ -20,4 +20,7 @@ public class CreateDocumentRequest {
 
     private String folderId;
     private String content;
+    private String fileName;
+    private String fileType;
+    private String s3Key;
 }

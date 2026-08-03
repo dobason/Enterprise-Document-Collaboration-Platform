@@ -24,9 +24,11 @@ public interface DocumentJpaRepository extends JpaRepository<DocumentEntity, Str
     @Query("SELECT d FROM DocumentEntity d WHERE d.deletedAt IS NULL")
     Page<DocumentEntity> findAllActive(Pageable pageable);
 
+    Page<DocumentEntity> findByDeletedAtIsNullAndFolderId(String folderId, Pageable pageable);
+
     Optional<DocumentEntity> findByIdAndDeletedAtIsNull(String id);
 
-    @Query("SELECT d FROM DocumentEntity d WHERE d.deletedAt IS NULL AND d.status = :status")
+    @Query("SELECT COUNT(d) FROM DocumentEntity d WHERE d.deletedAt IS NULL AND d.status = :status")
     long countByStatusAndDeletedAtIsNull(@Param("status") DocumentStatus status);
 
     @Query("SELECT COUNT(d) FROM DocumentEntity d WHERE d.deletedAt IS NULL AND d.status = 'APPROVED' AND d.updatedAt >= :startOfMonth")

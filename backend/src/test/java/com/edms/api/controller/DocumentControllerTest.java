@@ -65,7 +65,7 @@ class DocumentControllerTest {
                 .totalPages(1)
                 .build();
 
-        when(documentService.getDocuments(anyInt(), anyInt(), any(), any(), eq("u1")))
+        when(documentService.getDocuments(anyInt(), anyInt(), any(), any(), any(), eq("u1")))
                 .thenReturn(pageResponse);
 
         mockMvc.perform(get("/documents"))
@@ -111,7 +111,12 @@ class DocumentControllerTest {
     @WithMockUser(username = "u1", roles = "OWNER")
     @DisplayName("POST /documents - Success")
     void createDocument_Success() throws Exception {
-        CreateDocumentRequest request = new CreateDocumentRequest("Test Title", "Report", "f1", "Sample content");
+        CreateDocumentRequest request = CreateDocumentRequest.builder()
+                .title("Test Title")
+                .type("Report")
+                .folderId("f1")
+                .content("Sample content")
+                .build();
         DocumentDto doc = DocumentDto.builder()
                 .id("d99")
                 .title("Test Title")

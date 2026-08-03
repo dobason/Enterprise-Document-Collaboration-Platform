@@ -20,6 +20,9 @@ public class DocumentDto {
     private String folderId;
     private String content;
     private String currentVersionId;
+    private String fileName;
+    private String fileType;
+    private String s3Key;
     private Instant createdAt;
     private Instant updatedAt;
 }

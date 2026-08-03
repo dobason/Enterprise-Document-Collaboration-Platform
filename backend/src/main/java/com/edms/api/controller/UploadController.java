@@ -8,6 +8,7 @@ import com.edms.api.dto.UploadConfirmRequest;
 import com.edms.application.ports.StorageService;
 import com.edms.application.service.DocumentApplicationService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -16,11 +17,16 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.nio.file.Paths;
 import java.util.Map;
 import java.util.UUID;
 
@@ -67,6 +73,27 @@ public class UploadController {
         return ResponseEntity.ok(response);
     }
 
+    @PutMapping("/mock-put/{fileId}")
+    @Operation(
+        summary = "Upload file (mock S3 PUT)",
+        description = "Nhận raw bytes của file từ client và ghi vào local storage (uploads/). " +
+            "Đây là endpoint mà presigned URL (trong môi trường local) trỏ tới, thay cho S3 PUT thật ở Phase 2."
+    )
+    public ResponseEntity<Void> mockPutFile(
+            @Parameter(description = "ID file tạm thời do /upload/url sinh ra", example = "uuid")
+            @PathVariable("fileId") String fileId,
+            @Parameter(description = "Tên file gốc (chỉ lấy basename để tránh path traversal)")
+            @RequestParam(name = "fileName", required = false) String fileName,
+            @RequestHeader(value = "Content-Type", required = false) String contentType,
+            @RequestBody byte[] body) {
+        String safeName = (fileName != null && !fileName.isBlank())
+                ? Paths.get(fileName).getFileName().toString()
+                : fileId;
+        storageService.uploadFile(safeName, body,
+                contentType != null ? contentType : "application/octet-stream");
+        return ResponseEntity.ok().build();
+    }
+
     @PostMapping("/confirm")
     @Operation(
         summary = "Xác nhận upload hoàn tất & tạo Document",
@@ -84,11 +111,17 @@ public class UploadController {
     public ResponseEntity<DocumentDto> confirmUpload(@Valid @RequestBody UploadConfirmRequest request,
                                                       Authentication authentication) {
         String currentUserId = authentication != null ? authentication.getName() : request.getOwnerId();
+        String safeName = (request.getFileName() != null && !request.getFileName().isBlank())
+                ? Paths.get(request.getFileName()).getFileName().toString()
+                : "uploaded-file";
 
         CreateDocumentRequest docReq = CreateDocumentRequest.builder()
-                .title(request.getFileName())
+                .title(safeName.replaceFirst("\\.[^.]+$", ""))
                 .type(request.getFileType())
-                .content("{\"fileId\":\"" + request.getFileId() + "\",\"fileName\":\"" + request.getFileName() + "\"}")
+                .content("{\"fileId\":\"" + request.getFileId() + "\",\"fileName\":\"" + safeName + "\"}")
+                .fileName(safeName)
+                .fileType(request.getFileType())
+                .s3Key(safeName)
                 .build();
 
         DocumentDto doc = documentService.createDocument(docReq, currentUserId);

@@ -36,7 +36,7 @@ public class SearchApplicationService {
             if (query != null && !query.isBlank()) {
                 String pattern = "%" + query.toLowerCase() + "%";
                 Predicate titleMatch = cb.like(cb.lower(root.get("title")), pattern);
-                Predicate contentMatch = cb.like(cb.lower(root.get("content")), pattern);
+                Predicate contentMatch = cb.like(root.get("content"), pattern);
                 predicates.add(cb.or(titleMatch, contentMatch));
             }
 

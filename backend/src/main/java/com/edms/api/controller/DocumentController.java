@@ -13,7 +13,10 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -52,9 +55,11 @@ public class DocumentController {
             @RequestParam(name = "sortBy", required = false) String sortBy,
             @Parameter(description = "Thứ tự sắp xếp: asc hoặc desc", example = "desc")
             @RequestParam(name = "sortOrder", required = false) String sortOrder,
+            @Parameter(description = "Lọc theo thư mục", example = "f1")
+            @RequestParam(name = "folderId", required = false) String folderId,
             Authentication authentication) {
         String currentUserId = authentication != null ? authentication.getName() : "u1";
-        PageResponse<DocumentDto> response = documentService.getDocuments(page, limit, sortBy, sortOrder, currentUserId);
+        PageResponse<DocumentDto> response = documentService.getDocuments(page, limit, sortBy, sortOrder, folderId, currentUserId);
         return ResponseEntity.ok(response);
     }
 
@@ -69,6 +74,36 @@ public class DocumentController {
         String currentUserId = authentication != null ? authentication.getName() : "u1";
         DocumentDto doc = documentService.getDocumentById(id, currentUserId);
         return ResponseEntity.ok(doc);
+    }
+
+    @GetMapping("/{id}/download")
+    @Operation(
+        summary = "Tải file gốc của tài liệu",
+        description = "Trả về nội dung file đã upload (nếu có) kèm Content-Disposition attachment"
+    )
+    public ResponseEntity<byte[]> downloadDocument(
+            @Parameter(description = "ID tài liệu", example = "d1")
+            @PathVariable("id") String id, Authentication authentication) {
+        String currentUserId = authentication != null ? authentication.getName() : "u1";
+        DocumentApplicationService.FileDownload download = documentService.downloadDocument(id, currentUserId);
+
+        MediaType mediaType = MediaType.APPLICATION_OCTET_STREAM;
+        if (download.contentType() != null) {
+            try {
+                mediaType = MediaType.parseMediaType(download.contentType());
+            } catch (IllegalArgumentException ignored) {
+                mediaType = MediaType.APPLICATION_OCTET_STREAM;
+            }
+        }
+
+        ContentDisposition disposition = ContentDisposition.attachment()
+                .filename(download.fileName(), java.nio.charset.StandardCharsets.UTF_8)
+                .build();
+
+        return ResponseEntity.ok()
+                .contentType(mediaType)
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                .body(download.content());
     }
 
     @PostMapping

@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -29,7 +31,8 @@ public class LocalStorageService implements StorageService {
 
     @Override
     public String generatePresignedUploadUrl(String fileId, String fileName, String contentType) {
-        return "http://localhost:8080/api/upload/mock-put/" + fileId;
+        return "http://localhost:8088/upload/mock-put/" + fileId + "?fileName="
+                + URLEncoder.encode(fileName, StandardCharsets.UTF_8);
     }
 
     @Override
