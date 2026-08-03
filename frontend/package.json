@@ -6,9 +6,11 @@
     "amazon-cognito-identity-js": "^6.3.7",
     "draft-js": "^0.11.7",
     "lucide-react": "^1.27.0",
+    "mammoth": "^1.12.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^6.23.0"
+    "react-router-dom": "^6.23.0",
+    "xlsx": "^0.18.5"
   },
   "scripts": {
     "start": "react-scripts start",

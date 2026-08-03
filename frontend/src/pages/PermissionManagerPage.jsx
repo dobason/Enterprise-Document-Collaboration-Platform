@@ -2,10 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getDocument } from '../api/documents.api';
 import { getPermissions, grantPermission, removePermission, updatePermission } from '../api/permissions.api';
+import { listUsers } from '../api/users.api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { mockEngine } from '../api/mock/engine';
-import { getDataStore } from '../api/mock/data';
 import {
   ArrowLeft,
   Shield,
@@ -32,6 +31,11 @@ export default function PermissionManagerPage() {
   const [adding, setAdding] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [userDirectory, setUserDirectory] = useState([]);
+
+  useEffect(() => {
+    listUsers().then(setUserDirectory).catch(() => {});
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -65,8 +69,7 @@ export default function PermissionManagerPage() {
     setNewEmail(value);
 
     if (value.trim().length > 0) {
-      const store = getDataStore();
-      const allUsers = store.users || [];
+      const allUsers = userDirectory;
       const filtered = allUsers.filter(
         (u) =>
           u.email.toLowerCase().includes(value.toLowerCase()) &&
@@ -85,20 +88,14 @@ export default function PermissionManagerPage() {
 
     setAdding(true);
     try {
-      // Find or create user
-      const store = getDataStore();
-      let targetUser = store.users.find(
+      const targetUser = userDirectory.find(
         (u) => u.email.toLowerCase() === newEmail.toLowerCase()
       );
 
       if (!targetUser) {
-        // Create mock user
-        targetUser = await mockEngine.create('users', {
-          email: newEmail.trim(),
-          name: newEmail.split('@')[0],
-          role: 'VIEWER',
-          department: 'General',
-        });
+        addToast('User not found in the system', 'error');
+        setAdding(false);
+        return;
       }
 
       await grantPermission(id, targetUser.id, newRole);

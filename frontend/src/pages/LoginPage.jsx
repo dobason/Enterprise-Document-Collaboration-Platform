@@ -78,7 +78,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="input"
-                placeholder="Enter any password"
+                placeholder="Enter your password"
                 autoComplete="current-password"
                 disabled={loading}
               />
@@ -111,7 +111,7 @@ export default function LoginPage() {
           </form>
 
           <p className="mt-6 text-xs text-slate-400 text-center">
-            Mock authentication — enter any email and password to sign in
+            Demo accounts &mdash; owner@edms.vn / editor@edms.vn / manager@edms.vn / viewer@edms.vn / admin@edms.vn (password: Password123!)
           </p>
         </div>
       </div>

@@ -1,46 +1,55 @@
-import { mockEngine } from './mock/engine';
-import { getDataStore } from './mock/data';
+import { apiFetch, getStoredUser, getToken } from './client';
 
-const fakeUploads = {};
+const uploadCache = {};
+
+function putFileWithProgress(url, file, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', url);
+    xhr.setRequestHeader('Authorization', `Bearer ${getToken()}`);
+    xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) {
+        onProgress(Math.round((e.loaded / e.total) * 100));
+      }
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) resolve();
+      else reject(new Error(`Upload failed: HTTP ${xhr.status}`));
+    };
+    xhr.onerror = () => reject(new Error('Upload failed: network error'));
+    xhr.send(file);
+  });
+}
 
 export async function getUploadUrl(fileName, fileType) {
-  const fileId = `file_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-  const fakeUrl = `https://mock-upload.edms.local/${fileId}/${encodeURIComponent(fileName)}`;
+  const res = await apiFetch('/upload/url', {
+    method: 'POST',
+    body: { fileName, fileType },
+  });
 
-  fakeUploads[fileId] = {
-    fileId,
-    fileName,
-    fileType,
-    status: 'pending',
-    uploadedAt: new Date().toISOString(),
-  };
+  uploadCache[res.fileId] = { fileName, fileType };
 
-  return { url: fakeUrl, fileId, fields: {} };
+  return { url: res.url, fileId: res.fileId, fields: res.fields || {} };
 }
 
 export async function confirmUpload(fileId) {
-  const upload = fakeUploads[fileId];
-  if (!upload) throw new Error('Upload not found');
+  const cached = uploadCache[fileId] || {};
+  const user = getStoredUser();
 
-  upload.status = 'completed';
-
-  // Create document entry in mock data
-  const doc = await mockEngine.create('documents', {
-    title: upload.fileName.replace(/\.[^/.]+$/, ''),
-    type: upload.fileType.toUpperCase(),
-    fileName: upload.fileName,
-    ownerId: 'u1',
-    status: 'DRAFT',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+  return apiFetch('/upload/confirm', {
+    method: 'POST',
+    body: {
+      fileId,
+      fileName: cached.fileName || 'uploaded-file',
+      fileType: cached.fileType || 'application/octet-stream',
+      ownerId: user?.id || 'u1',
+    },
   });
-
-  return doc;
 }
 
-export async function uploadFile(file) {
-  // Simplified mock upload - simulate the full flow
-  const { fileId } = await getUploadUrl(file.name, file.type);
-  await new Promise((resolve) => setTimeout(resolve, 1500));
+export async function uploadFile(file, onProgress) {
+  const { url, fileId } = await getUploadUrl(file.name, file.type);
+  await putFileWithProgress(url, file, onProgress);
   return confirmUpload(fileId);
 }

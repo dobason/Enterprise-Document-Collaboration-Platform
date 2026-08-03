@@ -12,7 +12,9 @@ npm install
 npm start
 ```
 
-Mở `http://localhost:3000`. Login với bất kỳ email + password nào (không cần backend).
+Mở `http://localhost:3000`. Login bằng tài khoản demo: `owner@edms.vn` / `editor@edms.vn` / `manager@edms.vn` / `viewer@edms.vn` / `admin@edms.vn` (mật khẩu: `Password123!`).
+
+> Yêu cầu backend Spring Boot đang chạy ở `http://localhost:8088` (xem `backend/`, chạy bằng `mvn spring-boot:run`, profile `local` dùng H2 in-memory).
 
 ### Build
 
@@ -34,11 +36,9 @@ frontend/
 │   ├── index.css                  # Tailwind directives + component classes
 │   ├── App.js                     # Router (10 routes)
 │   ├── api/
-│   │   ├── mock/                  # ← Mock data layer (swap khi có backend)
-│   │   │   ├── seed.js            # Seed data: users, documents, versions...
-│   │   │   ├── engine.js          # Mock engine: CRUD, search, paginate, delay
-│   │   │   └── data.js            # Singleton data store
-│   │   ├── documents.api.js       # ← Swap file này để gọi API thật
+│   │   ├── client.js              # HTTP client chung: JWT Bearer, xử lý lỗi, 204 No Content
+│   │   ├── config.js              # API_URL → http://localhost:8088
+│   │   ├── documents.api.js
 │   │   ├── auth.api.js
 │   │   ├── versions.api.js
 │   │   ├── upload.api.js
@@ -49,7 +49,8 @@ frontend/
 │   │   ├── approval.api.js
 │   │   ├── share.api.js
 │   │   ├── dashboard.api.js
-│   │   └── ocr.api.js
+│   │   ├── ocr.api.js
+│   │   └── users.api.js
 │   ├── context/
 │   │   ├── AuthContext.js         # Auth state (swap Cognito sau này)
 │   │   └── ToastContext.js        # Toast notifications
@@ -83,126 +84,35 @@ App (ErrorBoundary)
 
 ---
 
-## Mock Data Layer
+## Kết nối Backend
 
-Hiện tại **chưa có backend** — toàn bộ dữ liệu dùng mock in-memory:
+Frontend gọi **backend Spring Boot thật** qua REST API tại `http://localhost:8088` (cấu hình trong `src/api/config.js`):
 
-| File | Vai trò |
-|------|---------|
-| `src/api/mock/seed.js` | 5 users, 10 documents (rich content), 3 folders, tags, versions, permissions |
-| `src/api/mock/engine.js` | CRUD + search + paginate + delay 200-500ms + 5% fail rate (configurable) |
-| `src/api/mock/data.js` | Singleton data store, khởi tạo từ seed |
+- Mọi request đi qua helper `apiFetch()` trong `src/api/client.js` — tự đính kèm `Authorization: Bearer <token>`, xử lý lỗi chuẩn `{ "error": "..." }` và response `204 No Content`.
+- Token JWT lấy từ `POST /auth/login`, lưu trong `localStorage` (`edms_token` / `edms_user`).
+- Mỗi module là một file `src/api/*.api.js` export các async function tương ứng với endpoint backend (documents, versions, folders, tags, search, permissions, approval, share, dashboard, ocr, users).
 
-Cơ chế: mỗi file `src/api/*.api.js` export các async function gọi vào mock engine:
+Danh sách endpoint chính:
 
-```js
-// documents.api.js — hiện tại (mock)
-export async function listDocuments(params) {
-  return mockEngine.query('documents', params);
-}
-```
-
-Khi có API thật, chỉ cần sửa dòng gọi:
-
-```js
-// documents.api.js — sau khi có backend
-export async function listDocuments(params) {
-  return apiFetch('/documents', { params: new URLSearchParams(params) });
-}
-```
-
----
-
-## Hướng dẫn gắn API thật cho Backend Dev
-
-### Bước 1: Cập nhật config
-
-Mở `src/api/config.js`:
-
-```js
-export const CONFIG = {
-  API_URL: "https://<api-id>.execute-api.ap-southeast-1.amazonaws.com/dev",
-  USER_POOL_ID: "<từ Cognito>",
-  USER_POOL_CLIENT_ID: "<từ Cognito>",
-  REGION: "ap-southeast-1",
-};
-```
-
-### Bước 2: Swap từng file `.api.js`
-
-Mỗi file trong `src/api/` đều có cấu trúc giống nhau:
-
-```js
-// === Mock version (current) ===
-// Comment 2 dòng dưới khi có API thật
-import { mockEngine } from './mock/engine';
-export async function getDocument(id) {
-  return mockEngine.get('documents', id);
-}
-
-// === Real API version (swap khi có backend) ===
-// Bỏ comment 4 dòng dưới, comment 2 dòng trên
-// import { apiFetch } from './client';
-// export async function getDocument(id) {
-//   return apiFetch(`/documents/${id}`);
-// }
-```
-
-Danh sách file cần swap:
-
-| File | Endpoint | Method |
-|------|----------|--------|
-| `auth.api.js` | `/auth/login`, `/auth/logout` | POST |
-| `documents.api.js` | `/documents` | GET, POST, DELETE |
-| `versions.api.js` | `/documents/:id/versions` | GET, POST |
-| `upload.api.js` | `/upload/url`, `/upload/confirm` | POST |
-| `folders.api.js` | `/folders` | GET, POST |
-| `tags.api.js` | `/documents/:id/tags` | GET, POST, DELETE |
-| `search.api.js` | `/search` | GET |
-| `permissions.api.js` | `/documents/:id/permissions` | GET, POST, PUT, DELETE |
-| `approval.api.js` | `/documents/:id/approval` | POST |
-| `share.api.js` | `/documents/:id/share` | POST, GET |
-| `dashboard.api.js` | `/dashboard/stats` | GET |
-| `ocr.api.js` | `/documents/:id/ocr` | GET, POST |
-
-### Bước 3: Auth swap (khi Cognito ready)
-
-Sửa `src/context/AuthContext.js`:
-- Import `amazon-cognito-identity-js` (đã có sẵn trong `package.json`)
-- `login()` gọi `CognitoUser.authenticateUser()` thay vì mock
-- `logout()` gọi `CognitoUser.signOut()`
+| File | Endpoint |
+|------|----------|
+| `auth.api.js` | `POST /auth/login`, `POST /auth/logout` |
+| `documents.api.js` | `GET/POST /documents`, `GET/PATCH/DELETE /documents/{id}` |
+| `versions.api.js` | `GET/POST /documents/{id}/versions`, `POST /documents/{id}/versions/rollback` |
+| `upload.api.js` | `POST /upload/url`, `POST /upload/confirm` |
+| `folders.api.js` | `GET/POST /folders`, `GET/DELETE /folders/{id}` |
+| `tags.api.js` | `GET/POST /documents/{id}/tags`, `DELETE /documents/{id}/tags/{docTagId}`, `GET /tags` |
+| `search.api.js` | `GET /search` |
+| `permissions.api.js` | `GET/POST /documents/{id}/permissions`, `PUT/DELETE /documents/{id}/permissions/{permissionId}` |
+| `approval.api.js` | `POST /approval/submit|approve|reject`, `GET /approval/history` |
+| `share.api.js` | `POST/GET /documents/{id}/share`, `GET /documents/{id}/shares` |
+| `dashboard.api.js` | `GET /dashboard/stats` |
+| `ocr.api.js` | `GET/POST /documents/{id}/ocr` |
+| `users.api.js` | `GET /users` |
 
 ### Nguyên tắc
 
 > **Không sửa file UI.** Mọi thay đổi chỉ trong `src/api/` và `src/context/AuthContext.js`.
-
-### API Contract
-
-Backend API cần trả về format:
-
-```json
-{
-  "items": [{ "id": "d1", "title": "...", "type": "Report", "status": "APPROVED", ... }],
-  "total": 10,
-  "page": 1,
-  "limit": 20,
-  "totalPages": 1
-}
-```
-
-Document fields:
-
-| Field | Type | Example |
-|-------|------|---------|
-| `id` | string | `"d1"` |
-| `title` | string | `"Q1 Engineering Report"` |
-| `type` | string | `"Report"`, `"Contract"`, `"Policy"` |
-| `status` | string | `"DRAFT"`, `"PENDING"`, `"APPROVED"`, `"REJECTED"` |
-| `ownerId` | string | `"u1"` |
-| `folderId` | string | `"f3"` |
-| `content` | string | JSON.stringify(RawDraftContentState) |
-| `createdAt` | string (ISO) | `"2025-03-15T..."` |
-| `updatedAt` | string (ISO) | `"2025-03-20T..."` |
 
 ---
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { listDocuments, deleteDocument } from '../api/documents.api';
+import * as documentsApi from '../api/documents.api';
 import { useToast } from '../context/ToastContext';
 import UploadModal from '../components/UploadModal';
 import SearchBar from '../components/SearchBar';

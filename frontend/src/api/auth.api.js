@@ -1,4 +1,4 @@
-import { mockEngine } from './mock/engine';
+import { apiFetch, getToken } from './client';
 
 const TOKEN_KEY = 'edms_token';
 const USER_KEY = 'edms_user';
@@ -8,35 +8,24 @@ export async function login(email, password) {
     throw new Error('Email and password are required');
   }
 
-  // Find user by email in mock data
-  const result = await mockEngine.query('users', { q: email });
-  let user = result.items.find((u) => u.email === email);
+  const data = await apiFetch('/auth/login', {
+    method: 'POST',
+    body: { email, password },
+  });
 
-  // If not found, create a mock user with random role
-  if (!user) {
-    const roles = ['VIEWER', 'EDITOR', 'MANAGER'];
-    const randomRole = roles[Math.floor(Math.random() * roles.length)];
-    user = {
-      id: `u_mock_${Date.now()}`,
-      email,
-      name: email.split('@')[0],
-      role: randomRole,
-      department: 'General',
-      avatar: null,
-    };
-  }
+  localStorage.setItem(TOKEN_KEY, data.token);
+  localStorage.setItem(USER_KEY, JSON.stringify(data.user));
 
-  // Generate mock token
-  const token = `mock_jwt_${btoa(email)}_${Date.now()}`;
-
-  // Store in localStorage
-  localStorage.setItem(TOKEN_KEY, token);
-  localStorage.setItem(USER_KEY, JSON.stringify(user));
-
-  return { token, user };
+  return { token: data.token, user: data.user };
 }
 
-export function logout() {
+export async function logout() {
+  // Best-effort: báo backend logout, không quan trọng kết quả
+  try {
+    await apiFetch('/auth/logout', { method: 'POST' });
+  } catch {
+    // ignore
+  }
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
 }
@@ -60,3 +49,5 @@ export function getCurrentUser() {
 export function isAuthenticated() {
   return !!localStorage.getItem(TOKEN_KEY);
 }
+
+export { getToken };

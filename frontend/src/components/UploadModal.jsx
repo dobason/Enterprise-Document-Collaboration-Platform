@@ -1,10 +1,8 @@
 import React, { useState, useRef } from 'react';
-import { createDocument } from '../api/documents.api';
-import { useAuth } from '../context/AuthContext';
+import { uploadFile } from '../api/upload.api';
 import { Upload, File, X, CheckCircle } from 'lucide-react';
 
 export default function UploadModal({ onClose, onUploaded }) {
-  const { user } = useAuth();
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -36,32 +34,8 @@ export default function UploadModal({ onClose, onUploaded }) {
     setUploading(true);
     setProgress(0);
 
-    // Fake progress simulation
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 90) {
-          clearInterval(interval);
-          return 90;
-        }
-        return prev + Math.random() * 15;
-      });
-    }, 200);
-
     try {
-      // Simulate upload delay
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // Create document in mock data
-      await createDocument({
-        title: selectedFile.name.replace(/\.[^/.]+$/, ''),
-        type: selectedFile.name.split('.').pop().toUpperCase(),
-        fileName: selectedFile.name,
-        fileSize: selectedFile.size,
-        ownerId: user?.id || 'u1',
-        status: 'DRAFT',
-      });
-
-      clearInterval(interval);
+      await uploadFile(selectedFile, (p) => setProgress(p));
       setProgress(100);
       setDone(true);
 
@@ -69,7 +43,6 @@ export default function UploadModal({ onClose, onUploaded }) {
         onUploaded?.();
       }, 800);
     } catch (err) {
-      clearInterval(interval);
       setUploading(false);
       setProgress(0);
       alert('Upload failed: ' + err.message);

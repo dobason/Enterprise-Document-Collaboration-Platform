@@ -1,12 +1,14 @@
-import { mockEngine } from './mock/engine';
+import { apiFetch } from './client';
 
+// Backend /search hỗ trợ: q, type, status.
+// Tham số `tag` không được backend hỗ trợ nên được bỏ qua.
 export async function searchDocuments({ q, tag, type, status } = {}) {
-  const criteria = {};
+  const qs = new URLSearchParams();
 
-  if (q) criteria.q = q;
-  if (tag) criteria.tags = Array.isArray(tag) ? tag : [tag];
-  if (type) criteria.types = Array.isArray(type) ? type : [type];
-  if (status) criteria.statuses = Array.isArray(status) ? status : [status];
+  if (q) qs.set('q', q);
+  if (type) qs.set('type', type);
+  if (status) qs.set('status', status);
 
-  return mockEngine.search('documents', criteria);
+  const query = qs.toString();
+  return apiFetch(`/search${query ? `?${query}` : ''}`);
 }

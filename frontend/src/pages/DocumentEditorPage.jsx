@@ -4,6 +4,10 @@ import { EditorState, convertFromRaw, convertToRaw } from 'draft-js';
 import { getDocument, updateDocument } from '../api/documents.api';
 import { getVersions, createVersion } from '../api/versions.api';
 import { getUserRole } from '../api/permissions.api';
+import { getToken } from '../api/client';
+import { CONFIG } from '../api/config';
+import mammoth from 'mammoth/mammoth.browser';
+import * as XLSX from 'xlsx';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import RichTextEditor from '../components/RichTextEditor';
@@ -18,6 +22,8 @@ import {
   Loader2,
   PanelRightOpen,
   PanelRightClose,
+  File,
+  Download,
 } from 'lucide-react';
 
 export default function DocumentEditorPage() {
@@ -35,6 +41,11 @@ export default function DocumentEditorPage() {
   const [versions, setVersions] = useState([]);
   const [isViewer, setIsViewer] = useState(false);
   const [isEditor, setIsEditor] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState(null);
+  const [fileUrl, setFileUrl] = useState(null);
+  const [fileHtml, setFileHtml] = useState(null);
+  const [previewKind, setPreviewKind] = useState(null);
+  const [fileLoadFailed, setFileLoadFailed] = useState(false);
   const [saveText, setSaveText] = useState('');
   const [saveType, setSaveType] = useState('');
   const contentRef = useRef(null);
@@ -51,6 +62,15 @@ export default function DocumentEditorPage() {
         const document = await getDocument(id);
         if (cancelled) return;
         setDoc(document);
+
+        if (document.fileName) {
+          setUploadedFile({
+            id: document.id,
+            name: document.fileName,
+            type: document.fileType || 'application/octet-stream',
+          });
+          renderFile(document.id, document.fileName, document.fileType);
+        }
 
         // Check user permission
         if (user) {
@@ -98,6 +118,80 @@ export default function DocumentEditorPage() {
     load();
     return () => { cancelled = true; };
   }, [id, addToast, navigate]);
+
+  const renderFile = useCallback(async (docId, fileName, fileType) => {
+    try {
+      const res = await fetch(`${CONFIG.API_URL}/documents/${docId}/download`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      if (!res.ok) {
+        setFileLoadFailed(true);
+        return;
+      }
+      const blob = await res.blob();
+      const ext = (fileName.split('.').pop() || '').toLowerCase();
+      const mime = (fileType || '').toLowerCase();
+
+      if (
+        mime.startsWith('image/') ||
+        ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp'].includes(ext)
+      ) {
+        setPreviewKind('image');
+        setFileUrl(URL.createObjectURL(blob));
+      } else if (mime === 'application/pdf' || ext === 'pdf') {
+        setPreviewKind('iframe');
+        setFileUrl(URL.createObjectURL(blob));
+      } else if (
+        mime.startsWith('text/') ||
+        ['txt', 'md', 'csv', 'log', 'json', 'xml', 'js', 'css', 'html'].includes(ext)
+      ) {
+        setPreviewKind('iframe');
+        setFileUrl(URL.createObjectURL(blob));
+      } else if (ext === 'docx') {
+        const arrayBuffer = await blob.arrayBuffer();
+        const { value } = await mammoth.convertToHtml({ arrayBuffer });
+        setPreviewKind('html');
+        setFileHtml(value);
+      } else if (ext === 'xlsx' || ext === 'xls') {
+        const arrayBuffer = await blob.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        setPreviewKind('html');
+        setFileHtml(XLSX.utils.sheet_to_html(sheet));
+      } else {
+        setFileLoadFailed(true);
+      }
+    } catch {
+      setFileLoadFailed(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (fileUrl) URL.revokeObjectURL(fileUrl);
+    };
+  }, [fileUrl]);
+
+  const handleDownload = useCallback(async () => {
+    if (!uploadedFile) return;
+    try {
+      const res = await fetch(`${CONFIG.API_URL}/documents/${uploadedFile.id}/download`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      if (!res.ok) throw new Error(`Download failed: HTTP ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = uploadedFile.name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      addToast('Download failed: ' + err.message, 'error');
+    }
+  }, [uploadedFile, addToast]);
 
   const getContentJSON = useCallback(() => {
     const contentState = contentRef.current
@@ -169,7 +263,7 @@ export default function DocumentEditorPage() {
   }, [handleSave]);
 
   useEffect(() => {
-    if (!doc || loading) return;
+    if (!doc || loading || uploadedFile) return;
 
     saveIntervalRef.current = setInterval(() => {
       handleSaveRef.current(true);
@@ -180,7 +274,7 @@ export default function DocumentEditorPage() {
         clearInterval(saveIntervalRef.current);
       }
     };
-  }, [doc, loading]);
+  }, [doc, loading, uploadedFile]);
 
   const handleEditorChange = (state) => {
     setEditorState(state);
@@ -261,7 +355,7 @@ export default function DocumentEditorPage() {
           )}
 
           {/* Save button */}
-          {!isViewer && (
+          {!isViewer && !uploadedFile && (
             <button
               onClick={() => handleSave(false)}
               disabled={saving}
@@ -287,12 +381,59 @@ export default function DocumentEditorPage() {
       <div className="flex gap-4 flex-1 min-h-0">
         {/* Main editor */}
         <div className="flex-1 overflow-y-auto">
-          <RichTextEditor
-            editorState={editorState}
-            onChange={handleEditorChange}
-            readOnly={isViewer}
-            placeholder="Start writing your document..."
-          />
+          {uploadedFile ? (
+            <div className="card p-6">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-xl bg-primary-50 flex items-center justify-center shrink-0">
+                  <File size={28} className="text-primary-600" aria-hidden="true" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-lg font-semibold text-slate-800 truncate">{uploadedFile.name}</h3>
+                  <p className="text-sm text-slate-400">{uploadedFile.type}</p>
+                </div>
+                <button onClick={handleDownload} className="btn btn-secondary shrink-0">
+                  <Download size={16} />
+                  Download
+                </button>
+              </div>
+
+              {fileUrl && previewKind === 'image' ? (
+                <div className="mt-6">
+                  <img
+                    src={fileUrl}
+                    alt={uploadedFile.name}
+                    className="max-h-[60vh] rounded-lg border border-slate-200"
+                  />
+                </div>
+              ) : fileUrl && previewKind === 'iframe' ? (
+                <div className="mt-6">
+                  <iframe
+                    src={fileUrl}
+                    title={uploadedFile.name}
+                    className="w-full h-[65vh] rounded-lg border border-slate-200 bg-white"
+                  />
+                </div>
+              ) : fileHtml && previewKind === 'html' ? (
+                <div
+                  className="mt-6 overflow-auto rounded-lg border border-slate-200 bg-white p-6 max-h-[65vh]"
+                  dangerouslySetInnerHTML={{ __html: fileHtml }}
+                />
+              ) : fileLoadFailed ? (
+                <div className="mt-6 p-10 text-center text-sm text-slate-400">
+                  Cannot preview this file type. Use Download to view it.
+                </div>
+              ) : (
+                <div className="mt-6 p-10 text-center text-sm text-slate-400">Loading preview...</div>
+              )}
+            </div>
+          ) : (
+            <RichTextEditor
+              editorState={editorState}
+              onChange={handleEditorChange}
+              readOnly={isViewer}
+              placeholder="Start writing your document..."
+            />
+          )}
         </div>
 
         {/* Right sidebar */}

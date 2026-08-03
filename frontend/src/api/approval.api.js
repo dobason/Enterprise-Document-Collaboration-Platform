@@ -1,63 +1,30 @@
-import { mockEngine } from './mock/engine';
-import { getDataStore } from './mock/data';
+import { apiFetch } from './client';
+
+// LƯU Ý: các endpoint approval nằm ở /approval/* (không phải /documents/{id}/approval/*)
+// và nhận body { documentId }. Sau mỗi hành động, refetch document đầy đủ để
+// ApprovalPage có thể setDoc(result) với toàn bộ thông tin.
+
+async function runApprovalAction(path, docId, extra = {}) {
+  await apiFetch(path, {
+    method: 'POST',
+    body: { documentId: docId, ...extra },
+  });
+  return apiFetch(`/documents/${docId}`);
+}
 
 export async function submitForApproval(docId) {
-  // Change status from DRAFT to PENDING
-  const doc = await mockEngine.get('documents', docId);
-  if (!doc) throw new Error('Document not found');
-  if (doc.status !== 'DRAFT') throw new Error('Only DRAFT documents can be submitted');
-
-  await mockEngine.update('documents', docId, { status: 'PENDING' });
-
-  // Create approval log
-  await mockEngine.create('approvals', {
-    documentId: docId,
-    action: 'SUBMIT',
-    fromStatus: 'DRAFT',
-    toStatus: 'PENDING',
-    timestamp: new Date().toISOString(),
-  });
-
-  return { ...doc, status: 'PENDING' };
+  return runApprovalAction('/approval/submit', docId);
 }
 
 export async function approveDocument(docId) {
-  const doc = await mockEngine.get('documents', docId);
-  if (!doc) throw new Error('Document not found');
-  if (doc.status !== 'PENDING') throw new Error('Only PENDING documents can be approved');
-
-  await mockEngine.update('documents', docId, { status: 'APPROVED' });
-
-  await mockEngine.create('approvals', {
-    documentId: docId,
-    action: 'APPROVE',
-    fromStatus: 'PENDING',
-    toStatus: 'APPROVED',
-    timestamp: new Date().toISOString(),
-  });
-
-  return { ...doc, status: 'APPROVED' };
+  return runApprovalAction('/approval/approve', docId);
 }
 
 export async function rejectDocument(docId) {
-  const doc = await mockEngine.get('documents', docId);
-  if (!doc) throw new Error('Document not found');
-  if (doc.status !== 'PENDING') throw new Error('Only PENDING documents can be rejected');
-
-  await mockEngine.update('documents', docId, { status: 'REJECTED' });
-
-  await mockEngine.create('approvals', {
-    documentId: docId,
-    action: 'REJECT',
-    fromStatus: 'PENDING',
-    toStatus: 'REJECTED',
-    timestamp: new Date().toISOString(),
-  });
-
-  return { ...doc, status: 'REJECTED' };
+  return runApprovalAction('/approval/reject', docId, { reason: 'No reason specified' });
 }
 
 export async function getApprovalHistory(docId) {
-  const result = await mockEngine.query('approvals', { documentId: docId });
-  return result.items;
+  const res = await apiFetch(`/approval/history?documentId=${encodeURIComponent(docId)}`);
+  return res.items || [];
 }

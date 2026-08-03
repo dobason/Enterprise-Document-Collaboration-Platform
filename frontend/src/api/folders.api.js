@@ -1,23 +1,21 @@
-import { mockEngine } from './mock/engine';
+import { apiFetch } from './client';
 
 export async function listFolders() {
-  const result = await mockEngine.query('folders');
-  return result.items;
+  const res = await apiFetch('/folders');
+  return res.items || [];
 }
 
 export async function getFolder(id) {
-  return mockEngine.get('folders', id);
+  return apiFetch(`/folders/${id}`);
 }
 
 export async function createFolder(name, department, ownerId) {
-  return mockEngine.create('folders', {
-    name,
-    department: department || 'General',
-    ownerId: ownerId || 'u1',
-    createdAt: new Date().toISOString(),
+  return apiFetch('/folders', {
+    method: 'POST',
+    body: { name, department: department || 'General' },
   });
 }
 
 export async function deleteFolder(id) {
-  return mockEngine.delete('folders', id);
+  return apiFetch(`/folders/${id}`, { method: 'DELETE' });
 }
