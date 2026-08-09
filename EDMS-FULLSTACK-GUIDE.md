@@ -57,6 +57,29 @@ npm install   # lần đầu
 npm start
 ```
 
+### Backend — chạy với Aurora MySQL (profile `aws`)
+
+Nếu muốn backend không dùng H2 local mà trỏ sang Aurora MySQL, hãy dùng profile `aws` và set biến môi trường trước khi chạy:
+
+```powershell
+$env:AURORA_ENDPOINT="<aurora-writer-endpoint>"
+$env:AURORA_PORT="3306"
+$env:DB_NAME="edms"
+$env:DB_USER="<aurora-username>"
+$env:DB_PASS="<aurora-password>"
+$env:DB_USE_SSL="true"
+$env:SPRING_PROFILES_ACTIVE="aws"
+
+cd backend
+mvn spring-boot:run
+```
+
+Ghi chú:
+- Database `edms` phải tồn tại sẵn trên Aurora.
+- `application-aws.yml` đang đọc các biến môi trường ở trên, không còn trỏ ngầm về `localhost`.
+- Backend vẫn chạy trên port `8088`, frontend giữ nguyên `http://localhost:3000` nếu API URL chưa đổi.
+- Nếu port `8088` đang bị chiếm bởi tiến trình cũ, tắt tiến trình đó rồi chạy lại.
+
 ### Tài khoản demo (seed bởi DataSeeder, mật khẩu chung: `Password123!`)
 | Email | Role |
 |---|---|
