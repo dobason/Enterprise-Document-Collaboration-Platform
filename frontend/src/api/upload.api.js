@@ -1,4 +1,5 @@
 import { apiFetch, getStoredUser, getToken } from './client';
+import { CONFIG } from './config';
 
 const uploadCache = {};
 
@@ -55,4 +56,9 @@ export async function uploadFile(file, onProgress) {
   const { url, fileId } = await getUploadUrl(file.name, file.type);
   await putFileWithProgress(url, file, onProgress);
   return confirmUpload(fileId);
+}
+
+export function getFileUrl(s3Key) {
+  if (!s3Key) return '#';
+  return `${CONFIG.CLOUDFRONT_URL}/${s3Key}`;
 }
