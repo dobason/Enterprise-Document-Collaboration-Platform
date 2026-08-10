@@ -20,8 +20,8 @@ aws:
   region: ap-southeast-1
   s3:
     bucket: edms-docs-bucket
-    access-key: AKIAUU2OIZLGLQSB365B
-    secret-key: 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
+    access-key: ${AWS_ACCESS_KEY_ID}
+    secret-key: ${AWS_SECRET_ACCESS_KEY}
   cognito:
     user-pool-id: ap-southeast-1_xxxxxx
     client-id: xxxxxxxxxxxxxxxxxx
