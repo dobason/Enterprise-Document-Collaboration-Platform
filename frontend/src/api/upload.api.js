@@ -6,8 +6,11 @@ function putFileWithProgress(url, file, onProgress) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', url);
-    xhr.setRequestHeader('Authorization', `Bearer ${getToken()}`);
+
+    // xhr.setRequestHeader('Authorization', `Bearer ${getToken()}`); 
+
     xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+    
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && onProgress) {
         onProgress(Math.round((e.loaded / e.total) * 100));

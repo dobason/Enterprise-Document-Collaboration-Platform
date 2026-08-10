@@ -2,6 +2,7 @@ package com.edms.infrastructure.aws;
 
 import com.edms.application.ports.StorageService;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.core.ResponseBytes;
@@ -13,15 +14,16 @@ import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
-import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 
+@Primary
 @Service
-@Profile("aws")
+@Profile({"mysql", "aws"})
 public class S3StorageService implements StorageService {
 
     private final S3Client s3Client;
@@ -42,11 +44,16 @@ public class S3StorageService implements StorageService {
     @Override
     public String generatePresignedUploadUrl(String fileId, String fileName, String contentType) {
         String key = buildKey(fileId, fileName);
+        
+        // Đảm bảo contentType không bị null/empty
+        String validContentType = (contentType != null && !contentType.isBlank()) 
+                ? contentType 
+                : "application/octet-stream";
 
         PutObjectRequest putReq = PutObjectRequest.builder()
                 .bucket(bucket)
                 .key(key)
-                .contentType(contentType)
+                .contentType(validContentType)
                 .build();
 
         PutObjectPresignRequest presignReq = PutObjectPresignRequest.builder()

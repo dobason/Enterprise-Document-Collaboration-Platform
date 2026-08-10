@@ -17,11 +17,8 @@ spring:
     locations: classpath:db/migration
 
 aws:
-  region: ap-southeast-1
+  region: ${AWS_REGION:ap-southeast-1}
   s3:
-    bucket: edms-docs-bucket
-    access-key: ${AWS_ACCESS_KEY_ID}
-    secret-key: ${AWS_SECRET_ACCESS_KEY}
-  cognito:
-    user-pool-id: ap-southeast-1_xxxxxx
-    client-id: xxxxxxxxxxxxxxxxxx
+    bucket: ${AWS_S3_BUCKET:edms-docs-bucket-319602346700-ap-southeast-1-an}
+    access-key: ${AWS_ACCESS_KEY_ID:AKIAUU2OIZLGLQSB365B}
+    secret-key: ${AWS_SECRET_ACCESS_KEY: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}
