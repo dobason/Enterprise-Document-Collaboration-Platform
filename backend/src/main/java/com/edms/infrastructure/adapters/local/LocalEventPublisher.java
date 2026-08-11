@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 @Service
-@Profile({"local", "mysql"})
+@Profile({"local", "mysql", "aws"})
 public class LocalEventPublisher implements EventPublisher {
 
     private static final Logger log = LoggerFactory.getLogger(LocalEventPublisher.class);

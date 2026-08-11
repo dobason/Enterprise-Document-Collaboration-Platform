@@ -13,7 +13,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service
-@Profile({"local", "mysql"})
+@Profile({"local", "mysql", "aws"})
 public class LocalAuthenticationService implements AuthenticationService {
 
     private final UserJpaRepository userRepository;

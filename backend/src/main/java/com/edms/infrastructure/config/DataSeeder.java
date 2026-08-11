@@ -42,7 +42,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 @Component
-@Profile({"local", "mysql"})
+@Profile({"local", "mysql", "aws"})
 public class DataSeeder implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(DataSeeder.class);

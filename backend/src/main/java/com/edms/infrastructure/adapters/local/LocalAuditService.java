@@ -13,7 +13,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Service
-@Profile({"local", "mysql"})
+@Profile({"local", "mysql", "aws"})
 public class LocalAuditService implements AuditService {
 
     private static final Logger log = LoggerFactory.getLogger(LocalAuditService.class);

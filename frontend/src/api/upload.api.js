@@ -1,4 +1,5 @@
 import { apiFetch, getStoredUser, getToken } from './client';
+import { CONFIG } from './config';
 
 const uploadCache = {};
 
@@ -6,8 +7,11 @@ function putFileWithProgress(url, file, onProgress) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', url);
-    xhr.setRequestHeader('Authorization', `Bearer ${getToken()}`);
+
+    // xhr.setRequestHeader('Authorization', `Bearer ${getToken()}`); 
+
     xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+    
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && onProgress) {
         onProgress(Math.round((e.loaded / e.total) * 100));
@@ -52,4 +56,9 @@ export async function uploadFile(file, onProgress) {
   const { url, fileId } = await getUploadUrl(file.name, file.type);
   await putFileWithProgress(url, file, onProgress);
   return confirmUpload(fileId);
+}
+
+export function getFileUrl(s3Key) {
+  if (!s3Key) return '#';
+  return `${CONFIG.CLOUDFRONT_URL}/${s3Key}`;
 }

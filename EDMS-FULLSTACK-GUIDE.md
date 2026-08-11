@@ -50,12 +50,47 @@ mvn spring-boot:run
 - Lần đầu chậm (~15-20s): Maven tải dependency + Spring Boot cold start — bình thường
 - Swagger UI: `http://localhost:8088/swagger-ui.html`
 
+### Backend — chạy với MySQL local (profile `mysql`)
+
+Khi muốn backend dùng MySQL thay vì H2, chạy profile `mysql` và để MySQL local đang hoạt động trước:
+
+```powershell
+$env:SPRING_PROFILES_ACTIVE="mysql"
+
+cd backend
+mvn spring-boot:run
+``
+
 ### Frontend — port 3000
 ```bash
 cd frontend
 npm install   # lần đầu
 npm start
 ```
+
+### Backend — chạy với AWS / Aurora MySQL (profile `aws`)
+
+Nếu muốn backend không dùng H2 local mà trỏ sang Aurora MySQL, hãy dùng profile `aws` và set biến môi trường trước khi chạy:
+
+```powershell
+$env:AURORA_ENDPOINT="<aurora-writer-endpoint>"
+$env:AURORA_PORT="3306"
+$env:DB_NAME="edms"
+$env:DB_USER="<aurora-username>"
+$env:DB_PASS="<aurora-password>"
+$env:DB_USE_SSL="true"
+$env:SPRING_PROFILES_ACTIVE="aws"
+
+cd backend
+mvn spring-boot:run
+```
+
+Ghi chú:
+- Database `edms` phải tồn tại sẵn trên Aurora.
+- `application-aws.yml` đang đọc các biến môi trường ở trên, không còn trỏ ngầm về `localhost`.
+- Backend vẫn chạy trên port `8088`, frontend giữ nguyên `http://localhost:3000` nếu API URL chưa đổi.
+- Nếu port `8088` đang bị chiếm bởi tiến trình cũ, tắt tiến trình đó rồi chạy lại.
+- Nếu bạn test S3 upload trong profile `aws`, hãy dùng `POST /upload/url` rồi `PUT` vào URL backend trả về, không gửi file trực tiếp vào `POST /upload/url`.
 
 ### Tài khoản demo (seed bởi DataSeeder, mật khẩu chung: `Password123!`)
 | Email | Role |

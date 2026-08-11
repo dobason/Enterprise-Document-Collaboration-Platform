@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 @Service
-@Profile({"local", "mysql"})
+@Profile({"local", "mysql", "aws"})
 public class LocalNotificationService implements NotificationService {
 
     private static final Logger log = LoggerFactory.getLogger(LocalNotificationService.class);

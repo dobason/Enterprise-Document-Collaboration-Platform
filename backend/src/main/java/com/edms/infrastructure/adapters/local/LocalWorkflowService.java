@@ -19,7 +19,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Service
-@Profile({"local", "mysql"})
+@Profile({"local", "mysql", "aws"})
 public class LocalWorkflowService implements WorkflowService {
 
     private final DocumentJpaRepository documentRepository;
