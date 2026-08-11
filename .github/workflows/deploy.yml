@@ -20,7 +20,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: "corretto"
-          java-version: "17"
+          java-version: "21"
           cache: "maven"
 
       # - name: Run unit tests cho toàn bộ 9 Lambda module (mvn test)
@@ -73,17 +73,15 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: "corretto"
-          java-version: "17"
+          java-version: "21"
           cache: "maven"
 
       - uses: aws-actions/setup-sam@v2
 
       - name: SAM build
-        working-directory: backend
         run: sam build
 
       - name: SAM deploy
-        working-directory: backend
         run: |
           sam deploy \
             --stack-name edms-dev \
@@ -92,14 +90,14 @@ jobs:
             --capabilities CAPABILITY_IAM \
             --parameter-overrides Stage=dev
 
-      - name: Run integration tests
-        env:
-          API_URL: ${{ secrets.EDMS_API_URL }}
-          USER_POOL_CLIENT_ID: ${{ secrets.EDMS_USER_POOL_CLIENT_ID }}
-          TEST_EMAIL: ${{ secrets.EDMS_TEST_EMAIL }}
-          TEST_PASSWORD: ${{ secrets.EDMS_TEST_PASSWORD }}
-          TABLE_NAME: ${{ secrets.EDMS_TABLE_NAME }}
-        run: bash backend/tests/integration/test_e2e_upload.sh
+      # Tạm comment bước integration test lại vì script test cũ đang dùng DynamoDB, cần viết lại cho Aurora sau.
+      # - name: Run integration tests
+      #   env:
+      #     API_URL: ${{ secrets.EDMS_API_URL }}
+      #     USER_POOL_CLIENT_ID: ${{ secrets.EDMS_USER_POOL_CLIENT_ID }}
+      #     TEST_EMAIL: ${{ secrets.EDMS_TEST_EMAIL }}
+      #     TEST_PASSWORD: ${{ secrets.EDMS_TEST_PASSWORD }}
+      #   run: bash backend/tests/integration/test_e2e_upload.sh
 
 # GHI CHÚ CHO P4:
 # 1. Chỉ CẦN duy nhất 1 secret nhạy cảm: AWS_DEPLOY_ROLE_ARN (ARN của IAM Role cho GitHub OIDC).

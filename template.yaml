@@ -1,7 +1,7 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: >
-  EDMS Serverless Infrastructure (V1 - DynamoDB)
+  EDMS Serverless Infrastructure (Aurora Database)
   Bảo mật với Least Privilege IAM Role và AWS SAM.
 
 Globals:
@@ -19,59 +19,52 @@ Globals:
 
 Resources:
 
+  # LƯU TRỮ: S3 BUCKET
+  DocumentStorageBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "edms-docs-${AWS::AccountId}-${AWS::Region}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: ['GET', 'PUT', 'POST']
+            AllowedOrigins: ['*']
+            MaxAge: 3000
 
-    # LƯU TRỮ: S3 BUCKET
-    DocumentStorageBucket:
-      Type: AWS::S3::Bucket
-      Properties:
-        BucketName: !Sub "edms-docs-${AWS::AccountId}-${AWS::Region}"
-        PublicAccessBlockConfiguration:
-          BlockPublicAcls: true
-          BlockPublicPolicy: true
-          IgnorePublicAcls: true
-          RestrictPublicBuckets: true
-        VersioningConfiguration:
-          Status: Enabled
-        BucketEncryption:
-          ServerSideEncryptionConfiguration:
-            - ServerSideEncryptionByDefault:
-                SSEAlgorithm: AES256
-        CorsConfiguration:
-          CorsRules:
-            - AllowedHeaders: ['*']
-              AllowedMethods: ['GET', 'PUT', 'POST']
-              AllowedOrigins: ['*']
-              MaxAge: 3000
+  # COMPUTE: LAMBDA FUNCTION VÍ DỤ
+  DocumentCrudFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/
+      Handler: com.edms.functions.documentcrud.App::handleRequest
+      AutoPublishAlias: live
+      Events:
+        CreateDoc:
+          Type: Api
+          Properties:
+            Path: /documents
+            Method: post
+        GetDoc:
+          Type: Api
+          Properties:
+            Path: /documents/{id}
+            Method: get
 
-    # COMPUTE: LAMBDA FUNCTION VÍ DỤ
-    DocumentCrudFunction:
-      Type: AWS::Serverless::Function
-      Properties:
-        CodeUri: backend/
-        Handler: com.edms.functions.documentcrud.App::handleRequest
-        AutoPublishAlias: live
-        Policies:
-          - DynamoDBCrudPolicy:
-              TableName: !Ref EdmsMainTable
-        Events:
-          CreateDoc:
-            Type: Api
-            Properties:
-              Path: /documents
-              Method: post
-          GetDoc:
-            Type: Api
-            Properties:
-              Path: /documents/{id}
-              Method: get
-
-  Outputs:
-    ApiGatewayEndpoint:
-      Description: "URL gốc của hệ thống API"
-      Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
-    S3BucketName:
-      Description: "Tên Bucket chứa tài liệu"
-      Value: !Ref DocumentStorageBucket
-    TableName:
-      Description: "Tên bảng DynamoDB"
-      Value: !Ref EdmsMainTable
+Outputs:
+  ApiGatewayEndpoint:
+    Description: "URL gốc của hệ thống API"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+  S3BucketName:
+    Description: "Tên Bucket chứa tài liệu"
+    Value: !Ref DocumentStorageBucket
