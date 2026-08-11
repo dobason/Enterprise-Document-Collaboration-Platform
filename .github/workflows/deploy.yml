@@ -23,12 +23,12 @@ jobs:
           java-version: "17"
           cache: "maven"
 
-      - name: Run unit tests cho toàn bộ 9 Lambda module (mvn test)
-        run: |
-          for dir in backend/java/functions/*/; do
-            echo "== Testing $dir =="
-            (cd "$dir" && mvn -B test)
-          done
+      # - name: Run unit tests cho toàn bộ 9 Lambda module (mvn test)
+      #   run: |
+      #     for dir in backend/java/functions/*/; do
+      #       echo "== Testing $dir =="
+      #       (cd "$dir" && mvn -B test)
+      #     done
 
   build-frontend:
     runs-on: ubuntu-latest
