@@ -1,7 +1,11 @@
-// Cấu hình endpoint - P1 điền lại sau khi `sam deploy` in ra Outputs
+// Cấu hình endpoint - backend Spring Boot và CloudFront
 export const CONFIG = {
-  API_URL: "https://<api-id>.execute-api.ap-southeast-1.amazonaws.com/dev",
-  USER_POOL_ID: "<UserPoolId từ Outputs>",
-  USER_POOL_CLIENT_ID: "<UserPoolClientId từ Outputs>",
-  REGION: "ap-southeast-1",
+  API_URL: "http://localhost:8088",
+  CLOUDFRONT_URL: "https://d1224pvtm2yk1h.cloudfront.net",
 };
+
+export function getCloudFrontUrl(path = "") {
+  const baseUrl = CONFIG.CLOUDFRONT_URL.replace(/\/+$/, "");
+  const normalizedPath = String(path || "").replace(/^\/+/, "");
+  return normalizedPath ? `${baseUrl}/${normalizedPath}` : baseUrl;
+}

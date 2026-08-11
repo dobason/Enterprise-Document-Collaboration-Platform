@@ -1,0 +1,10 @@
+spring:
+  profiles:
+    active: mysql
+  application:
+    name: backend-java
+
+server:
+  port: 8088
+  servlet:
+    context-path: /
