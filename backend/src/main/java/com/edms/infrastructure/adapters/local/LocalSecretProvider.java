@@ -6,7 +6,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 
 @Service
-@Profile({"local", "mysql", "aws"})
+@Profile({"mysql", "aws"})
 public class LocalSecretProvider implements SecretProvider {
 
     private final Environment environment;

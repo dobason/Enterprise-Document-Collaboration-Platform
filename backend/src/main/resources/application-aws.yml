@@ -2,8 +2,8 @@ spring:
   datasource:
     url: jdbc:mysql://${AURORA_ENDPOINT}:${AURORA_PORT:3306}/${DB_NAME:edms}?useSSL=${DB_USE_SSL:false}&allowPublicKeyRetrieval=true&serverTimezone=Asia/Ho_Chi_Minh&characterEncoding=UTF-8
     driver-class-name: com.mysql.cj.jdbc.Driver
-    username: ${DB_USER}
-    password: ${DB_PASS}
+    username: ${DB_USER_AWS}
+    password: ${DB_PASS_AWS}
   jpa:
     database-platform: org.hibernate.dialect.MySQLDialect
     hibernate:
@@ -20,5 +20,11 @@ aws:
   region: ${AWS_REGION:ap-southeast-1}
   s3:
     bucket: ${AWS_S3_BUCKET:edms-docs-bucket-319602346700-ap-southeast-1-an}
-    access-key: ${AWS_ACCESS_KEY_ID:AKIAUU2OIZLGLQSB365B}
-    secret-key: ${AWS_SECRET_ACCESS_KEY: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}
+    access-key: ${AWS_ACCESS_KEY_ID}
+    secret-key: ${AWS_SECRET_ACCESS_KEY}
+  cognito:
+    region: ${COGNITO_REGION:${AWS_REGION:ap-southeast-1}}
+    user-pool-id: ${COGNITO_USER_POOL_ID}
+    client-id: ${COGNITO_CLIENT_ID}
+    access-key: ${AWS_ACCESS_KEY_ID}
+    secret-key: ${AWS_SECRET_ACCESS_KEY}
