@@ -82,4 +82,16 @@ public class ShareController {
         ShareListResponse response = shareService.getDocumentShares(id);
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/share/{token}")
+    @Operation(
+        summary = "Xem tài liệu qua link chia sẻ",
+        description = "Public API để xem tài liệu bằng token chia sẻ"
+    )
+    public ResponseEntity<com.edms.api.dto.DocumentDto> getSharedDocument(
+            @Parameter(description = "Share token")
+            @PathVariable("token") String token) {
+        com.edms.api.dto.DocumentDto doc = shareService.getSharedDocument(token);
+        return ResponseEntity.ok(doc);
+    }
 }

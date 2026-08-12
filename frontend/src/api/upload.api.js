@@ -37,7 +37,7 @@ export async function getUploadUrl(fileName, fileType) {
   return { url: res.url, fileId: res.fileId, fields: res.fields || {} };
 }
 
-export async function confirmUpload(fileId) {
+export async function confirmUpload(fileId, folderId, extractedContent) {
   const cached = uploadCache[fileId] || {};
   const user = getStoredUser();
 
@@ -48,15 +48,18 @@ export async function confirmUpload(fileId) {
       fileName: cached.fileName || 'uploaded-file',
       fileType: cached.fileType || 'application/octet-stream',
       ownerId: user?.id || 'u1',
+      folderId,
+      extractedContent,
     },
   });
 }
 
-export async function uploadFile(file, onProgress) {
+export async function uploadFile(file, onProgress, folderId, extractedContent) {
   const { url, fileId } = await getUploadUrl(file.name, file.type);
   await putFileWithProgress(url, file, onProgress);
-  return confirmUpload(fileId);
+  return confirmUpload(fileId, folderId, extractedContent);
 }
+
 
 export function getFileUrl(s3Key) {
   if (!s3Key) return '#';

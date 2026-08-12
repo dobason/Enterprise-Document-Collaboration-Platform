@@ -40,8 +40,8 @@ public class LocalWorkflowService implements WorkflowService {
         DocumentEntity doc = documentRepository.findByIdAndDeletedAtIsNull(documentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + documentId));
 
-        if (doc.getStatus() != DocumentStatus.DRAFT) {
-            throw new BadRequestException("Only DRAFT documents can be submitted for approval");
+        if (doc.getStatus() != DocumentStatus.DRAFT && doc.getStatus() != DocumentStatus.PENDING) {
+            throw new BadRequestException("Only DRAFT or PENDING documents can be submitted");
         }
 
         DocumentStatus oldStatus = doc.getStatus();
@@ -59,7 +59,8 @@ public class LocalWorkflowService implements WorkflowService {
         DocumentEntity doc = documentRepository.findByIdAndDeletedAtIsNull(documentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + documentId));
 
-        if (doc.getStatus() != DocumentStatus.PENDING) {
+        // Accept both DRAFT (legacy) and PENDING
+        if (doc.getStatus() != DocumentStatus.PENDING && doc.getStatus() != DocumentStatus.DRAFT) {
             throw new BadRequestException("Only PENDING documents can be approved");
         }
 
@@ -78,7 +79,8 @@ public class LocalWorkflowService implements WorkflowService {
         DocumentEntity doc = documentRepository.findByIdAndDeletedAtIsNull(documentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + documentId));
 
-        if (doc.getStatus() != DocumentStatus.PENDING) {
+        // Accept both DRAFT (legacy) and PENDING
+        if (doc.getStatus() != DocumentStatus.PENDING && doc.getStatus() != DocumentStatus.DRAFT) {
             throw new BadRequestException("Only PENDING documents can be rejected");
         }
 

@@ -47,7 +47,7 @@ export default function VersionHistoryPage() {
       } catch (err) {
         if (!cancelled) {
           addToast('Failed to load version history: ' + err.message, 'error');
-          navigate(`/documents/${id}`);
+          navigate(-1);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -108,8 +108,8 @@ export default function VersionHistoryPage() {
     return (
       <div className="empty-state">
         <h3 className="empty-state-title">Document not found</h3>
-        <button onClick={() => navigate('/documents')} className="btn btn-primary mt-4">
-          Back to Documents
+        <button onClick={() => navigate(-1)} className="btn btn-primary mt-4">
+          Back
         </button>
       </div>
     );
@@ -120,9 +120,9 @@ export default function VersionHistoryPage() {
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <button
-          onClick={() => navigate(`/documents/${id}`)}
+          onClick={() => navigate(-1)}
           className="p-2 rounded-lg hover:bg-slate-100 text-slate-500"
-          aria-label="Back to editor"
+          aria-label="Back"
         >
           <ArrowLeft size={18} aria-hidden="true" />
         </button>

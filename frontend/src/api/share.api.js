@@ -19,3 +19,7 @@ export async function listShares(docId) {
   const res = await apiFetch(`/documents/${docId}/shares`);
   return res.items || [];
 }
+
+export async function getSharedDocument(token) {
+  return apiFetch(`/documents/share/${token}`);
+}

@@ -112,7 +112,8 @@ public class S3StorageService implements StorageService {
         s3Client.deleteObject(req);
     }
 
-    private String buildKey(String fileId, String fileName) {
+    @Override
+    public String buildKey(String fileId, String fileName) {
         String safeName = URLEncoder.encode(fileName == null ? "file" : fileName, StandardCharsets.UTF_8);
         return fileId + "_" + safeName;
     }

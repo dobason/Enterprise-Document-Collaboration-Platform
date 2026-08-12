@@ -21,6 +21,7 @@ import java.time.Instant;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -65,7 +66,7 @@ class DocumentControllerTest {
                 .totalPages(1)
                 .build();
 
-        when(documentService.getDocuments(anyInt(), anyInt(), any(), any(), any(), eq("u1")))
+        when(documentService.getDocuments(anyInt(), anyInt(), any(), any(), any(), eq("u1"), anyBoolean()))
                 .thenReturn(pageResponse);
 
         mockMvc.perform(get("/documents"))
@@ -87,7 +88,7 @@ class DocumentControllerTest {
                 .createdAt(Instant.now())
                 .build();
 
-        when(documentService.getDocumentById(eq("d1"), eq("u1"))).thenReturn(doc);
+        when(documentService.getDocumentById(eq("d1"), eq("u1"), anyBoolean())).thenReturn(doc);
 
         mockMvc.perform(get("/documents/d1"))
                 .andExpect(status().isOk())
@@ -99,7 +100,7 @@ class DocumentControllerTest {
     @WithMockUser(username = "u1", roles = "OWNER")
     @DisplayName("GET /documents/{id} - Not Found")
     void getDocumentById_NotFound() throws Exception {
-        when(documentService.getDocumentById(eq("d999"), eq("u1")))
+        when(documentService.getDocumentById(eq("d999"), eq("u1"), anyBoolean()))
                 .thenThrow(new ResourceNotFoundException("Document not found: d999"));
 
         mockMvc.perform(get("/documents/d999"))
@@ -126,7 +127,7 @@ class DocumentControllerTest {
                 .createdAt(Instant.now())
                 .build();
 
-        when(documentService.createDocument(any(CreateDocumentRequest.class), eq("u1"))).thenReturn(doc);
+        when(documentService.createDocument(any(CreateDocumentRequest.class), eq("u1"), anyBoolean())).thenReturn(doc);
 
         mockMvc.perform(post("/documents")
                         .contentType(MediaType.APPLICATION_JSON)

@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { EditorState, convertFromRaw, convertToRaw } from 'draft-js';
+import { EditorState, convertFromRaw, convertToRaw, ContentState, convertFromHTML } from 'draft-js';
 import { getDocument, updateDocument } from '../api/documents.api';
 import { getVersions, createVersion } from '../api/versions.api';
+import { approveDocument, rejectDocument } from '../api/approval.api';
 import { getUserRole } from '../api/permissions.api';
 import { getToken } from '../api/client';
 import { CONFIG } from '../api/config';
@@ -24,6 +25,8 @@ import {
   PanelRightClose,
   File,
   Download,
+  ThumbsUp,
+  ThumbsDown,
 } from 'lucide-react';
 
 export default function DocumentEditorPage() {
@@ -93,11 +96,36 @@ export default function DocumentEditorPage() {
             setEditorState(state);
             contentRef.current = document.content;
             lastSavedContentRef.current = document.content;
+          } else {
+            throw new Error('Empty JSON blocks');
           }
         } catch {
-          setEditorState(EditorState.createEmpty());
-          contentRef.current = '';
-          lastSavedContentRef.current = '';
+          // Fallback to HTML parser if JSON parse fails
+          const blocksFromHTML = convertFromHTML(document.content || '');
+          if (blocksFromHTML.contentBlocks && blocksFromHTML.contentBlocks.length > 0) {
+            const state = ContentState.createFromBlockArray(
+              blocksFromHTML.contentBlocks,
+              blocksFromHTML.entityMap
+            );
+            setEditorState(EditorState.createWithContent(state));
+            contentRef.current = document.content;
+            lastSavedContentRef.current = document.content;
+          } else {
+            // Fallback to plain text stripping HTML completely
+            const stripHtml = (html) => {
+              if (!html) return '';
+              let withNewlines = html.replace(/<\/(p|div|h[1-6]|li)>/ig, '\n');
+              withNewlines = withNewlines.replace(/<br\s*[\/]?>/ig, '\n');
+              const tmp = window.document.createElement('DIV');
+              tmp.innerHTML = withNewlines;
+              return (tmp.textContent || tmp.innerText || '').trim();
+            };
+            const cleanText = stripHtml(document.content || '');
+            const plainTextContent = ContentState.createFromText(cleanText);
+            setEditorState(EditorState.createWithContent(plainTextContent));
+            contentRef.current = cleanText;
+            lastSavedContentRef.current = cleanText;
+          }
         }
 
         // Load versions
@@ -174,6 +202,22 @@ export default function DocumentEditorPage() {
 
   const handleDownload = useCallback(async () => {
     if (!uploadedFile) return;
+
+    if (uploadedFile.name.endsWith('.docx') || uploadedFile.name.endsWith('.doc')) {
+      // Export current editor content as a text file to reflect the current edited version
+      const text = editorState.getCurrentContent().getPlainText('\n');
+      const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = uploadedFile.name.replace(/\.docx?$/, '.txt');
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      return;
+    }
+
     try {
       const res = await fetch(`${CONFIG.API_URL}/documents/${uploadedFile.id}/download`, {
         headers: { Authorization: `Bearer ${getToken()}` },
@@ -191,7 +235,7 @@ export default function DocumentEditorPage() {
     } catch (err) {
       addToast('Download failed: ' + err.message, 'error');
     }
-  }, [uploadedFile, addToast]);
+  }, [uploadedFile, editorState, addToast]);
 
   const getContentJSON = useCallback(() => {
     const contentState = contentRef.current
@@ -304,7 +348,7 @@ export default function DocumentEditorPage() {
     return (
       <div className="empty-state">
         <h3 className="empty-state-title">Document not found</h3>
-        <button onClick={() => navigate('/documents')} className="btn btn-primary mt-4">
+        <button onClick={() => navigate(-1)} className="btn btn-primary mt-4">
           Back to Documents
         </button>
       </div>
@@ -324,7 +368,7 @@ export default function DocumentEditorPage() {
       {/* Toolbar */}
       <div className="flex items-center gap-3 mb-4 shrink-0">
         <button
-          onClick={() => navigate('/documents')}
+          onClick={() => navigate(-1)}
           className="p-2 rounded-lg hover:bg-slate-100 text-slate-500"
           aria-label="Back to documents"
         >
@@ -354,6 +398,52 @@ export default function DocumentEditorPage() {
             </span>
           )}
 
+          {doc.status && (
+            <span className={`badge ml-2 ${
+              doc.status === 'APPROVED' ? 'bg-green-100 text-green-700' :
+              doc.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
+              doc.status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
+              'bg-slate-100 text-slate-700'
+            }`}>
+              {doc.status}
+            </span>
+          )}
+
+          {user?.role === 'ADMIN' && doc.status === 'PENDING' && (
+            <>
+              <button
+                onClick={async () => {
+                  try {
+                    const updatedDoc = await approveDocument(doc.id);
+                    setDoc(updatedDoc);
+                    addToast('Document approved', 'success');
+                  } catch (e) {
+                    addToast(e.message || 'Approval failed', 'error');
+                  }
+                }}
+                className="btn btn-secondary text-green-600 hover:bg-green-50"
+              >
+                <ThumbsUp size={16} /> Approve
+              </button>
+              <button
+                onClick={async () => {
+                  const reason = prompt('Reason for rejection:');
+                  if (!reason) return;
+                  try {
+                    const updatedDoc = await rejectDocument(doc.id, reason);
+                    setDoc(updatedDoc);
+                    addToast('Document rejected', 'success');
+                  } catch (e) {
+                    addToast(e.message || 'Rejection failed', 'error');
+                  }
+                }}
+                className="btn btn-secondary text-red-600 hover:bg-red-50"
+              >
+                <ThumbsDown size={16} /> Reject
+              </button>
+            </>
+          )}
+
           {/* Save button */}
           {!isViewer && !uploadedFile && (
             <button
@@ -381,8 +471,8 @@ export default function DocumentEditorPage() {
       <div className="flex gap-4 flex-1 min-h-0">
         {/* Main editor */}
         <div className="flex-1 overflow-y-auto">
-          {uploadedFile ? (
-            <div className="card p-6">
+          {uploadedFile && (
+            <div className="card p-6 mb-6">
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 rounded-xl bg-primary-50 flex items-center justify-center shrink-0">
                   <File size={28} className="text-primary-600" aria-hidden="true" />
@@ -426,14 +516,14 @@ export default function DocumentEditorPage() {
                 <div className="mt-6 p-10 text-center text-sm text-slate-400">Loading preview...</div>
               )}
             </div>
-          ) : (
-            <RichTextEditor
-              editorState={editorState}
-              onChange={handleEditorChange}
-              readOnly={isViewer}
-              placeholder="Start writing your document..."
-            />
           )}
+
+          <RichTextEditor
+            editorState={editorState}
+            onChange={handleEditorChange}
+            readOnly={isViewer}
+            placeholder={uploadedFile ? "Notes or extracted text..." : "Start writing your document..."}
+          />
         </div>
 
         {/* Right sidebar */}
@@ -455,11 +545,14 @@ export default function DocumentEditorPage() {
                 }
               }}
             />
-            <TagManager documentId={doc.id} />
+            {/* <TagManager documentId={doc.id} /> */}
 
             {/* View all versions link */}
             <button
-              onClick={() => navigate(`/documents/${doc.id}/versions`)}
+              onClick={() => {
+                const basePath = window.location.pathname.startsWith('/admin') ? '/admin/documents' : '/documents';
+                navigate(`${basePath}/${doc.id}/versions`);
+              }}
               className="w-full text-xs text-primary-600 hover:text-primary-700 font-medium py-2 text-center"
             >
               View full version history

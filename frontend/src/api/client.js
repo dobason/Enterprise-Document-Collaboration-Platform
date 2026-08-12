@@ -2,6 +2,8 @@
 // Tự động đính kèm JWT token từ localStorage (key: edms_token) vào mọi request.
 import { CONFIG } from "./config";
 
+export const API_BASE_URL = CONFIG.API_URL;
+
 export function getToken() {
   return localStorage.getItem("edms_token");
 }

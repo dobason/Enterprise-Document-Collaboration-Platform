@@ -132,9 +132,6 @@ export default function DocumentListPage() {
                     <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">
                       Name
                     </th>
-                    <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 hidden sm:table-cell">
-                      Type
-                    </th>
                     <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">
                       Status
                     </th>
@@ -160,9 +157,6 @@ export default function DocumentListPage() {
                             {doc.title}
                           </span>
                         </div>
-                      </td>
-                      <td className="px-4 py-3.5 hidden sm:table-cell">
-                        <span className="text-sm text-slate-500">{doc.type}</span>
                       </td>
                       <td className="px-4 py-3.5">
                         <span className={STATUS_BADGE[doc.status] || 'badge'}>

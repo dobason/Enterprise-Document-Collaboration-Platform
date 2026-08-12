@@ -59,7 +59,9 @@ public class DocumentController {
             @RequestParam(name = "folderId", required = false) String folderId,
             Authentication authentication) {
         String currentUserId = authentication != null ? authentication.getName() : "u1";
-        PageResponse<DocumentDto> response = documentService.getDocuments(page, limit, sortBy, sortOrder, folderId, currentUserId);
+        boolean isAdmin = authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        PageResponse<DocumentDto> response = documentService.getDocuments(page, limit, sortBy, sortOrder, folderId, currentUserId, isAdmin);
         return ResponseEntity.ok(response);
     }
 
@@ -72,7 +74,9 @@ public class DocumentController {
             @Parameter(description = "ID tài liệu", example = "d1")
             @PathVariable("id") String id, Authentication authentication) {
         String currentUserId = authentication != null ? authentication.getName() : "u1";
-        DocumentDto doc = documentService.getDocumentById(id, currentUserId);
+        boolean isAdmin = authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        DocumentDto doc = documentService.getDocumentById(id, currentUserId, isAdmin);
         return ResponseEntity.ok(doc);
     }
 
@@ -85,7 +89,9 @@ public class DocumentController {
             @Parameter(description = "ID tài liệu", example = "d1")
             @PathVariable("id") String id, Authentication authentication) {
         String currentUserId = authentication != null ? authentication.getName() : "u1";
-        DocumentApplicationService.FileDownload download = documentService.downloadDocument(id, currentUserId);
+        boolean isAdmin = authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        DocumentApplicationService.FileDownload download = documentService.downloadDocument(id, currentUserId, isAdmin);
 
         MediaType mediaType = MediaType.APPLICATION_OCTET_STREAM;
         if (download.contentType() != null) {
@@ -133,7 +139,9 @@ public class DocumentController {
     public ResponseEntity<DocumentDto> createDocument(@Valid @RequestBody CreateDocumentRequest request,
                                                       Authentication authentication) {
         String currentUserId = authentication != null ? authentication.getName() : "u1";
-        DocumentDto doc = documentService.createDocument(request, currentUserId);
+        boolean isAdmin = authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        DocumentDto doc = documentService.createDocument(request, currentUserId, isAdmin);
         return ResponseEntity.status(HttpStatus.CREATED).body(doc);
     }
 
@@ -158,7 +166,9 @@ public class DocumentController {
             @RequestBody UpdateDocumentRequest request,
             Authentication authentication) {
         String currentUserId = authentication != null ? authentication.getName() : "u1";
-        DocumentDto updated = documentService.updateDocument(id, request, currentUserId);
+        boolean isAdmin = authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        DocumentDto updated = documentService.updateDocument(id, request, currentUserId, isAdmin);
         return ResponseEntity.ok(updated);
     }
 
@@ -171,7 +181,9 @@ public class DocumentController {
             @Parameter(description = "ID tài liệu cần xóa", example = "d2")
             @PathVariable("id") String id, Authentication authentication) {
         String currentUserId = authentication != null ? authentication.getName() : "u1";
-        documentService.deleteDocument(id, currentUserId);
+        boolean isAdmin = authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        documentService.deleteDocument(id, currentUserId, isAdmin);
         return ResponseEntity.noContent().build();
     }
 }

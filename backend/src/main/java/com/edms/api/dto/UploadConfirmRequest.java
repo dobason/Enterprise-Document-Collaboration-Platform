@@ -22,4 +22,8 @@ public class UploadConfirmRequest {
     private String fileType;
 
     private String ownerId;
+    
+    private String folderId;
+    
+    private String extractedContent;
 }

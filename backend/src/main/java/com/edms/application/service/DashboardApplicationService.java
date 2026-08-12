@@ -40,9 +40,12 @@ public class DashboardApplicationService {
         long totalDepartments = departmentRepository.count();
 
         List<DashboardStatsResponse.DeptCount> docsByDept = new ArrayList<>();
-        departmentRepository.findAll().forEach(dept -> {
-            docsByDept.add(new DashboardStatsResponse.DeptCount(dept.getName(), 1L));
-        });
+        List<Object[]> deptCounts = documentRepository.countDocumentsByDepartmentRaw();
+        for (Object[] row : deptCounts) {
+            String deptName = (String) row[0];
+            Long count = ((Number) row[1]).longValue();
+            docsByDept.add(new DashboardStatsResponse.DeptCount(deptName, count));
+        }
 
         List<DashboardStatsResponse.StatusCount> docsByStatus = List.of(
                 new DashboardStatsResponse.StatusCount("APPROVED", approvedCount),
