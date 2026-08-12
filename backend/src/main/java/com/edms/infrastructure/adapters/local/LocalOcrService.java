@@ -14,7 +14,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Service
-@Profile({"local", "mysql", "aws"})
+@Profile({"mysql", "aws"})
 public class LocalOcrService implements OcrService {
 
     private final OcrResultJpaRepository ocrRepository;
