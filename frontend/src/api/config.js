@@ -1,6 +1,6 @@
 // Cấu hình endpoint - backend Spring Boot và CloudFront
 export const CONFIG = {
-  API_URL: "http://localhost:8088",
+  API_URL: "https://wwwl5so707.execute-api.ap-southeast-1.amazonaws.com/prod",
   CLOUDFRONT_URL: "https://d1224pvtm2yk1h.cloudfront.net",
 };
 
