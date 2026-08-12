@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getFolder, listFolders, createFolder } from '../api/folders.api';
-import { listDocuments } from '../api/documents.api';
+import { getFolder, listFolders, createFolder, deleteFolder } from '../api/folders.api';
+import { listDocuments, deleteDocument, updateDocument } from '../api/documents.api';
 import { useToast } from '../context/ToastContext';
+import UploadModal from '../components/UploadModal';
 import {
   ArrowLeft,
   Folder,
@@ -11,6 +12,10 @@ import {
   Upload,
   ChevronRight,
   Home,
+  MoreVertical,
+  ArrowUp,
+  Image,
+  Shield,
 } from 'lucide-react';
 
 const STATUS_BADGE = {
@@ -30,6 +35,7 @@ export default function FolderDetailPage() {
   const [folders, setFolders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showNewFolder, setShowNewFolder] = useState(false);
+  const [showUpload, setShowUpload] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
 
   useEffect(() => {
@@ -76,6 +82,46 @@ export default function FolderDetailPage() {
     }
   };
 
+  const handleDeleteFolder = async (folderId, folderName, e) => {
+    e.stopPropagation();
+    if (!window.confirm(`Delete folder "${folderName}"? This action cannot be undone.`)) return;
+    try {
+      await deleteFolder(folderId);
+      addToast(`Folder "${folderName}" deleted`, 'success');
+      if (folderId === id) {
+        navigate('/documents');
+      } else {
+        const allFolders = await listFolders();
+        setFolders(allFolders);
+      }
+    } catch (err) {
+      addToast('Failed to delete folder: ' + err.message, 'error');
+    }
+  };
+
+  const handleDeleteDocument = async (docId, docTitle, e) => {
+    e.stopPropagation();
+    if (!window.confirm(`Delete "${docTitle}"? This action cannot be undone.`)) return;
+    try {
+      await deleteDocument(docId);
+      addToast(`"${docTitle}" deleted`, 'success');
+      const allDocuments = await listDocuments({ folderId: id });
+      setDocuments(allDocuments.items);
+    } catch (err) {
+      addToast('Failed to delete document: ' + err.message, 'error');
+    }
+  };
+
+  const toggleFolderMenu = (folderId, e) => {
+    e.stopPropagation();
+    setFolders(prev => prev.map(f => f.id === folderId ? { ...f, showMenu: !f.showMenu } : { ...f, showMenu: false }));
+  };
+
+  const toggleDocumentMenu = (docId, e) => {
+    e.stopPropagation();
+    setDocuments(prev => prev.map(d => d.id === docId ? { ...d, showMenu: !d.showMenu } : { ...d, showMenu: false }));
+  };
+
   const formatDate = (dateStr) => {
     if (!dateStr) return '-';
     return new Date(dateStr).toLocaleDateString('en-US', {
@@ -83,11 +129,108 @@ export default function FolderDetailPage() {
     });
   };
 
+  const getFileIcon = (doc) => {
+    const title = (doc.title || '').toLowerCase();
+    const type = (doc.type || '').toLowerCase();
+    if (type.includes('budget') || title.includes('budget') || title.includes('xlsx') || title.includes('csv')) {
+      return { icon: FileText, color: 'text-emerald-600', bg: 'bg-emerald-50' };
+    }
+    if (type.includes('architecture') || title.includes('architecture') || title.includes('specification') || title.includes('doc')) {
+      return { icon: FileText, color: 'text-blue-600', bg: 'bg-blue-50' };
+    }
+    if (title.includes('drawio') || title.includes('diagram')) {
+      return { icon: FileText, color: 'text-orange-600', bg: 'bg-orange-50' };
+    }
+    if (title.includes('png') || title.includes('jpg') || title.includes('jpeg') || title.includes('image')) {
+      return { icon: Image, color: 'text-red-600', bg: 'bg-red-50' };
+    }
+    if (title.includes('trắc nghiệm') || title.includes('form') || title.includes('survey')) {
+      return { icon: FileText, color: 'text-purple-600', bg: 'bg-purple-50' };
+    }
+    return { icon: FileText, color: 'text-slate-500', bg: 'bg-slate-50' };
+  };
+
+  const renderFilePreview = (doc) => {
+    const title = (doc.title || '').toLowerCase();
+    const type = (doc.type || '').toLowerCase();
+    if (type.includes('budget') || title.includes('budget') || title.includes('xlsx') || title.includes('csv')) {
+      return (
+        <div className="w-full h-full flex flex-col gap-1.5 p-2 bg-white border border-slate-100 rounded shadow-sm">
+          <div className="h-3 bg-emerald-50 rounded w-2/3" />
+          <div className="grid grid-cols-3 gap-1">
+            <div className="h-2 bg-slate-100 rounded" />
+            <div className="h-2 bg-slate-100 rounded" />
+            <div className="h-2 bg-slate-100 rounded" />
+          </div>
+          <div className="grid grid-cols-3 gap-1">
+            <div className="h-2 bg-slate-50 rounded" />
+            <div className="h-2 bg-slate-50 rounded" />
+            <div className="h-2 bg-slate-50 rounded" />
+          </div>
+          <div className="grid grid-cols-3 gap-1">
+            <div className="h-2 bg-slate-50 rounded" />
+            <div className="h-2 bg-slate-50 rounded" />
+            <div className="h-2 bg-slate-50 rounded" />
+          </div>
+        </div>
+      );
+    }
+    if (type.includes('architecture') || title.includes('architecture') || title.includes('specification') || title.includes('doc')) {
+      return (
+        <div className="w-full h-full flex flex-col gap-2 p-2 bg-white border border-slate-100 rounded shadow-sm">
+          <div className="h-3 bg-blue-50 rounded w-1/2" />
+          <div className="h-2 bg-slate-100 rounded w-full" />
+          <div className="h-2 bg-slate-100 rounded w-5/6" />
+          <div className="h-2 bg-slate-100 rounded w-4/5" />
+        </div>
+      );
+    }
+    if (title.includes('drawio') || title.includes('diagram')) {
+      return (
+        <div className="w-full h-full flex items-center justify-center gap-2 p-2 bg-white border border-slate-100 rounded shadow-sm">
+          <div className="w-8 h-8 rounded border-2 border-orange-200 bg-orange-50/50 flex items-center justify-center" />
+          <div className="w-4 h-0.5 bg-slate-300" />
+          <div className="w-8 h-8 rounded-full border-2 border-orange-200 bg-orange-50/50 flex items-center justify-center" />
+        </div>
+      );
+    }
+    if (title.includes('png') || title.includes('jpg') || title.includes('jpeg') || title.includes('image')) {
+      return (
+        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-red-50 to-orange-50 border border-slate-100 rounded shadow-sm relative overflow-hidden">
+          <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#f97316_1px,transparent_1px)] [background-size:8px_8px]" />
+          <Image size={24} className="text-red-400" />
+        </div>
+      );
+    }
+    if (title.includes('trắc nghiệm') || title.includes('form') || title.includes('survey')) {
+      return (
+        <div className="w-full h-full flex flex-col gap-2 p-2 bg-white border border-slate-100 rounded shadow-sm">
+          <div className="h-3 bg-purple-50 rounded w-3/4" />
+          <div className="flex items-center gap-1">
+            <div className="w-2.5 h-2.5 rounded-full border border-slate-300" />
+            <div className="h-2 bg-slate-100 rounded w-1/2" />
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-2.5 h-2.5 rounded-full border border-slate-300" />
+            <div className="h-2 bg-slate-100 rounded w-1/3" />
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="w-full h-full flex flex-col gap-2 p-2 bg-white border border-slate-100 rounded shadow-sm">
+        <div className="h-3 bg-slate-100 rounded w-1/2" />
+        <div className="h-2 bg-slate-50 rounded w-full" />
+        <div className="h-2 bg-slate-50 rounded w-5/6" />
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="loading-center">
         <div className="spinner" />
-        <p>Loading folder\u2026</p>
+        <p>Loading folder…</p>
       </div>
     );
   }
@@ -102,19 +245,19 @@ export default function FolderDetailPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-slate-400 mb-4">
+      {/* <div className="flex items-center gap-2 text-sm text-slate-400 mb-4">
         <button onClick={() => navigate('/documents')} className="hover:text-slate-600 transition-colors">
           <Home size={14} />
         </button>
         <ChevronRight size={14} />
         <span className="text-slate-700 font-medium">{folder.name}</span>
-      </div>
+      </div> */}
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
+       <div className="flex items-center justify-between mb-6">
+        {/* <div className="flex items-center gap-3">
           <Folder size={28} className="text-primary-600" />
           <div>
             <h1 className="text-2xl font-bold text-slate-800">{folder.name}</h1>
@@ -122,16 +265,8 @@ export default function FolderDetailPage() {
               {folder.department} &middot; Created {formatDate(folder.createdAt)}
             </p>
           </div>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setShowNewFolder(!showNewFolder)}
-            className="btn btn-secondary"
-          >
-            <Plus size={16} />
-            New Folder
-          </button>
-        </div>
+        </div>  */}
+
       </div>
 
       {/* New folder form */}
@@ -157,83 +292,172 @@ export default function FolderDetailPage() {
         </div>
       )}
 
-      {/* Documents in folder */}
-      <div className="card overflow-hidden">
-        <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/50">
-          <h3 className="text-sm font-semibold text-slate-700">Documents in this folder</h3>
-        </div>
 
-        {documents.length === 0 ? (
-          <div className="p-12">
-            <div className="empty-state">
-              <FileText size={40} className="text-slate-300" />
-              <h3 className="empty-state-title">No documents in this folder</h3>
-              <p className="empty-state-desc">Upload documents to this folder to organize them.</p>
-            </div>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-slate-100">
-                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Name</th>
-                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 hidden sm:table-cell">Type</th>
-                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Status</th>
-                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 hidden md:table-cell">Updated</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {documents.map((doc) => (
-                  <tr
-                    key={doc.id}
-                    onClick={() => navigate(`/documents/${doc.id}`)}
-                    className="hover:bg-slate-50 transition-colors cursor-pointer"
-                  >
-                    <td className="px-4 py-3.5">
-                      <div className="flex items-center gap-3">
-                        <FileText size={18} className="text-slate-400 shrink-0" />
-                        <span className="text-sm font-medium text-slate-700 truncate max-w-[300px]">{doc.title}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3.5 hidden sm:table-cell">
-                      <span className="text-sm text-slate-500">{doc.type}</span>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <span className={STATUS_BADGE[doc.status] || 'badge'}>{doc.status}</span>
-                    </td>
-                    <td className="px-4 py-3.5 hidden md:table-cell">
-                      <span className="text-sm text-slate-500">{formatDate(doc.updatedAt)}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Other folders */}
-      <div className="mt-8">
-        <h3 className="text-sm font-semibold text-slate-700 mb-3">All Folders</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {folders.map((f) => (
+      {/* Folders Section (Image 2 style) */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-slate-700">Folders</h3>
+          <div className="flex gap-2">
             <button
+              onClick={() => setShowUpload(true)}
+              className="btn btn-primary"
+            >
+              <Upload size={16} />
+              Upload
+            </button>
+            <button
+              onClick={() => setShowNewFolder(!showNewFolder)}
+              className="btn btn-secondary"
+            >
+              <Plus size={16} />
+              New Folder
+            </button>
+          </div>
+        </div>
+        {showUpload && (
+          <UploadModal
+            onClose={() => setShowUpload(false)}
+            onUploaded={async (doc) => {
+              if (doc && doc.id) {
+                try {
+                  await updateDocument(doc.id, { folderId: id });
+                  const allDocuments = await listDocuments({ folderId: id });
+                  setDocuments(allDocuments.items);
+                } catch (err) {
+                  addToast('Failed to move document to folder: ' + err.message, 'error');
+                }
+              }
+              setShowUpload(false);
+            }}
+          />
+        )}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          {folders.map((f) => (
+            <div
               key={f.id}
               onClick={() => navigate(`/folders/${f.id}`)}
-              className={`card p-4 text-left hover:shadow-md transition-shadow ${
-                f.id === id ? 'ring-2 ring-primary-200 bg-primary-50/30' : ''
+              className={`flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 border rounded-xl transition-all cursor-pointer relative group ${
+                f.id === id ? 'border-primary-500 ring-2 ring-primary-100 bg-primary-50/30' : 'border-slate-200'
               }`}
             >
-              <div className="flex items-center gap-3">
-                <Folder size={20} className={f.id === id ? 'text-primary-600' : 'text-slate-400'} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-700 truncate">{f.name}</p>
-                  <p className="text-xs text-slate-400">{f.department}</p>
-                </div>
+              <div className="flex items-center gap-3 min-w-0">
+                <Folder size={20} className={f.id === id ? 'text-primary-600' : 'text-slate-600'} />
+                <span className="text-sm font-medium text-slate-700 truncate">{f.name}</span>
               </div>
-            </button>
+              <div className="relative">
+                <button
+                  onClick={(e) => toggleFolderMenu(f.id, e)}
+                  className="p-1 rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  <MoreVertical size={16} />
+                </button>
+                {f.showMenu && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); toggleFolderMenu(f.id, e); }} />
+                    <div className="absolute right-0 top-full mt-1 w-32 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-20">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/folders/${f.id}`);
+                        }}
+                        className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
+                      >
+                        Open
+                      </button>
+                      <button
+                        onClick={(e) => handleDeleteFolder(f.id, f.name, e)}
+                        className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-red-600 hover:bg-red-50"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
           ))}
         </div>
+      </div>
+
+      {/* Files Section (Image 2 style) */}
+      <div>
+        <h3 className="text-sm font-semibold text-slate-700 mb-3">Files</h3>
+        {documents.length === 0 ? (
+          <div className="card p-12 text-center">
+            <FileText size={40} className="text-slate-300 mx-auto mb-2" />
+            <h3 className="empty-state-title">No documents in this folder</h3>
+            <p className="empty-state-desc">Upload documents to this folder to organize them.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            {documents.map((doc) => {
+              const fileConfig = getFileIcon(doc);
+              const IconComponent = fileConfig.icon;
+              return (
+                <div
+                  key={doc.id}
+                  onClick={() => navigate(`/documents/${doc.id}`)}
+                  className="flex flex-col bg-white border border-slate-200 rounded-xl overflow-hidden hover:shadow-md transition-all cursor-pointer group"
+                >
+                  {/* Header */}
+                  <div className="flex items-center justify-between p-3 border-b border-slate-100 bg-slate-50/50">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <IconComponent size={18} className={`${fileConfig.color} shrink-0`} />
+                      <span className="text-sm font-medium text-slate-700 truncate" title={doc.title}>
+                        {doc.title}
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <button
+                        onClick={(e) => toggleDocumentMenu(doc.id, e)}
+                        className="p-1 rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-colors"
+                      >
+                        <MoreVertical size={16} />
+                      </button>
+                      {doc.showMenu && (
+                        <>
+                          <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); toggleDocumentMenu(doc.id, e); }} />
+                          <div className="absolute right-0 top-full mt-1 w-32 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-20">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/documents/${doc.id}`);
+                              }}
+                              className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
+                            >
+                              Open
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/documents/${doc.id}/permissions`);
+                              }}
+                              className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
+                            >
+                              <Shield size={14} />
+                              Permissions
+                            </button>
+                            <button
+                              onClick={(e) => handleDeleteDocument(doc.id, doc.title, e)}
+                              className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-red-600 hover:bg-red-50"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Preview Body */}
+                  <div className="flex-1 h-32 bg-slate-50 flex items-center justify-center p-4 relative overflow-hidden">
+                    {renderFilePreview(doc)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

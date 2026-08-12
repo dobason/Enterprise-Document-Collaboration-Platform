@@ -26,10 +26,10 @@ export default function SearchPage() {
   const [searchParams] = useSearchParams();
   const { addToast } = useToast();
 
-  const [keyword, setKeyword] = useState(searchParams.get('q') || '');
-  const [selectedTags, setSelectedTags] = useState([]);
-  const [selectedType, setSelectedType] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('');
+  const [keyword, setKeyword] = useState(() => searchParams.get('q') || '');
+  const [selectedTags, setSelectedTags] = useState(() => searchParams.getAll('tag'));
+  const [selectedType, setSelectedType] = useState(() => searchParams.get('type') || '');
+  const [selectedStatus, setSelectedStatus] = useState(() => searchParams.get('status') || '');
   const [allTags, setAllTags] = useState([]);
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -40,44 +40,48 @@ export default function SearchPage() {
     getAllTags().then(setAllTags).catch(() => {});
   }, []);
 
-  // Auto-search from URL params (initial load only)
+  // Auto-search from URL params (runs whenever searchParams changes)
   useEffect(() => {
-    if (searchParams.get('q')) {
-      // Will execute search on first render
+    const query = searchParams.get('q') || '';
+    const type = searchParams.get('type') || '';
+    const status = searchParams.get('status') || '';
+    const tags = searchParams.getAll('tag');
+
+    setKeyword(query);
+    setSelectedType(type);
+    setSelectedStatus(status);
+    setSelectedTags(tags);
+
+    if (query || type || status || tags.length > 0) {
       setLoading(true);
       setSearched(true);
-      searchDocuments({ q: searchParams.get('q') })
+      searchDocuments({
+        q: query || undefined,
+        type: type || undefined,
+        status: status || undefined,
+        tag: tags.length > 0 ? tags : undefined,
+      })
         .then((result) => setResults(result.items))
         .catch(() => {})
         .finally(() => setLoading(false));
+    } else {
+      setResults([]);
+      setSearched(false);
     }
-  }, []);
+  }, [searchParams]);
 
-  const handleSearch = useCallback(async () => {
-    setLoading(true);
-    setSearched(true);
-    try {
-      const result = await searchDocuments({
-        q: keyword,
-        tag: selectedTags.length > 0 ? selectedTags : undefined,
-        type: selectedType || undefined,
-        status: selectedStatus || undefined,
-      });
-      setResults(result.items);
-    } catch (err) {
-      addToast('Search failed: ' + err.message, 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [keyword, selectedTags, selectedType, selectedStatus, addToast]);
+  const handleSearch = useCallback(() => {
+    const params = new URLSearchParams();
+    if (keyword.trim()) params.set('q', keyword.trim());
+    if (selectedType) params.set('type', selectedType);
+    if (selectedStatus) params.set('status', selectedStatus);
+    selectedTags.forEach((tag) => params.append('tag', tag));
+
+    navigate(`/search?${params.toString()}`);
+  }, [keyword, selectedType, selectedStatus, selectedTags, navigate]);
 
   const handleClear = () => {
-    setKeyword('');
-    setSelectedTags([]);
-    setSelectedType('');
-    setSelectedStatus('');
-    setResults([]);
-    setSearched(false);
+    navigate('/search');
   };
 
   const toggleTag = (tagId) => {
@@ -135,7 +139,7 @@ export default function SearchPage() {
             <SlidersHorizontal size={16} aria-hidden="true" />
           </button>
           {searched && (
-            <button onClick={handleClear} className="btn btn-ghost" aria-label="Clear filters">
+            <button onClick={handleClear} className="btn btn-secondary" aria-label="Clear filters">
               <RotateCcw size={16} aria-hidden="true" />
             </button>
           )}

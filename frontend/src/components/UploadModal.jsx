@@ -35,12 +35,12 @@ export default function UploadModal({ onClose, onUploaded }) {
     setProgress(0);
 
     try {
-      await uploadFile(selectedFile, (p) => setProgress(p));
+      const doc = await uploadFile(selectedFile, (p) => setProgress(p));
       setProgress(100);
       setDone(true);
 
       setTimeout(() => {
-        onUploaded?.();
+        onUploaded?.(doc);
       }, 800);
     } catch (err) {
       setUploading(false);

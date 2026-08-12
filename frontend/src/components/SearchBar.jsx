@@ -1,11 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import { searchDocuments } from '../api/search.api';
 import { Search, FileText } from 'lucide-react';
 
 export default function SearchBar({ compact = false }) {
   const navigate = useNavigate();
-  const [query, setQuery] = useState('');
+  const context = useOutletContext();
+
+  const [localQuery, setLocalQuery] = useState('');
+  const query = context ? context.searchQuery : localQuery;
+  const setQuery = context ? context.setSearchQuery : setLocalQuery;
+
   const [results, setResults] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -79,7 +84,7 @@ export default function SearchBar({ compact = false }) {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search documents\u2026"
+            placeholder="Search documents..."
             autoComplete="off"
             spellCheck={false}
             className={`input pl-10 ${compact ? 'text-sm py-1.5' : ''}`}

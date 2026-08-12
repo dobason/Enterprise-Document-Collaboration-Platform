@@ -20,7 +20,7 @@ public class DashboardApplicationService {
     private final DepartmentJpaRepository departmentRepository;
 
     public DashboardApplicationService(DocumentJpaRepository documentRepository,
-                                       DepartmentJpaRepository departmentRepository) {
+            DepartmentJpaRepository departmentRepository) {
         this.documentRepository = documentRepository;
         this.departmentRepository = departmentRepository;
     }
@@ -41,15 +41,15 @@ public class DashboardApplicationService {
 
         List<DashboardStatsResponse.DeptCount> docsByDept = new ArrayList<>();
         departmentRepository.findAll().forEach(dept -> {
-            docsByDept.add(new DashboardStatsResponse.DeptCount(dept.getName(), 1L));
+            long count = documentRepository.countByDepartmentIdAndDeletedAtIsNull(dept.getId());
+            docsByDept.add(new DashboardStatsResponse.DeptCount(dept.getName(), count));
         });
 
         List<DashboardStatsResponse.StatusCount> docsByStatus = List.of(
                 new DashboardStatsResponse.StatusCount("APPROVED", approvedCount),
                 new DashboardStatsResponse.StatusCount("PENDING", pendingCount),
                 new DashboardStatsResponse.StatusCount("DRAFT", draftCount),
-                new DashboardStatsResponse.StatusCount("REJECTED", rejectedCount)
-        );
+                new DashboardStatsResponse.StatusCount("REJECTED", rejectedCount));
 
         return DashboardStatsResponse.builder()
                 .totalDocuments(totalDocs)

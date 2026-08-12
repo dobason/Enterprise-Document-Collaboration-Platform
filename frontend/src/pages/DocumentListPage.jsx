@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as documentsApi from '../api/documents.api';
+import { listFolders } from '../api/folders.api';
 import { useToast } from '../context/ToastContext';
 import UploadModal from '../components/UploadModal';
 import SearchBar from '../components/SearchBar';
@@ -10,6 +11,7 @@ import {
   Trash2,
   MoreHorizontal,
   Inbox,
+  Shield,
 } from 'lucide-react';
 
 const STATUS_BADGE = {
@@ -36,8 +38,19 @@ export default function DocumentListPage() {
     setLoading(true);
     try {
       const params = { page, limit, sortBy: 'updatedAt', sortOrder: 'desc' };
-      const result = await documentsApi.listDocuments(params);
-      setDocuments(result.items);
+      const [result, foldersList] = await Promise.all([
+        documentsApi.listDocuments(params),
+        listFolders(),
+      ]);
+      const foldersMap = {};
+      foldersList.forEach((f) => {
+        foldersMap[f.id] = f.name;
+      });
+      const itemsWithFolder = result.items.map((doc) => ({
+        ...doc,
+        folderName: foldersMap[doc.folderId] || 'General',
+      }));
+      setDocuments(itemsWithFolder);
       setTotalPages(result.totalPages);
       setTotal(result.total);
     } catch (err) {
@@ -85,17 +98,12 @@ export default function DocumentListPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Documents</h1>
+          <h1 className="text-2xl font-bold text-slate-800">Files</h1>
           <p className="text-sm text-slate-500 mt-1">
-            {total > 0 ? `${total} document${total !== 1 ? 's' : ''} total` : 'Manage your documents'}
+            {total > 0 ? `${total} file${total !== 1 ? 's' : ''} total` : 'Manage your files'}
           </p>
         </div>
-        <button onClick={() => setShowUpload(true)} className="btn btn-primary">
-          <Plus size={16} />
-          Upload
-        </button>
       </div>
-
       {/* Search bar */}
       <div className="mb-4">
         <SearchBar compact />
@@ -112,13 +120,9 @@ export default function DocumentListPage() {
           <div className="empty-state">
             <Inbox size={48} className="text-slate-300 mb-2" />
             <h3 className="empty-state-title">No documents yet</h3>
-            <p className="empty-state-desc">
-              Upload your first document to get started.
+            <p className="text-empty-state-desc">
+              No documents have been uploaded yet.
             </p>
-            <button onClick={() => setShowUpload(true)} className="btn btn-primary mt-4">
-              <Plus size={16} />
-              Upload Document
-            </button>
           </div>
         </div>
       ) : (
@@ -131,6 +135,9 @@ export default function DocumentListPage() {
                   <tr className="border-b border-slate-100 bg-slate-50/50">
                     <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">
                       Name
+                    </th>
+                    <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 hidden sm:table-cell">
+                      Folder
                     </th>
                     <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 hidden sm:table-cell">
                       Type
@@ -160,6 +167,9 @@ export default function DocumentListPage() {
                             {doc.title}
                           </span>
                         </div>
+                      </td>
+                      <td className="px-4 py-3.5 hidden sm:table-cell">
+                        <span className="text-sm text-slate-500">{doc.folderName || 'General'}</span>
                       </td>
                       <td className="px-4 py-3.5 hidden sm:table-cell">
                         <span className="text-sm text-slate-500">{doc.type}</span>
@@ -199,6 +209,16 @@ export default function DocumentListPage() {
                                 >
                                   <FileText size={14} />
                                   Open
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`/documents/${doc.id}/permissions`);
+                                  }}
+                                  className="flex items-center gap-2 w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                                >
+                                  <Shield size={14} />
+                                  Permissions
                                 </button>
                                 <button
                                   onClick={() => handleDelete(doc)}
@@ -246,13 +266,6 @@ export default function DocumentListPage() {
         </>
       )}
 
-      {/* Upload Modal */}
-      {showUpload && (
-        <UploadModal
-          onClose={() => setShowUpload(false)}
-          onUploaded={handleUploadComplete}
-        />
-      )}
     </div>
   );
 }

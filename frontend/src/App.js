@@ -14,6 +14,7 @@ import PermissionManagerPage from './pages/PermissionManagerPage';
 import ApprovalPage from './pages/ApprovalPage';
 import FolderDetailPage from './pages/FolderDetailPage';
 import DashboardPage from './pages/DashboardPage';
+import DirectoryPage from './pages/DirectoryPage';
 
 const DocumentEditorPage = lazy(() => import('./pages/DocumentEditorPage'));
 
@@ -31,7 +32,7 @@ export default function App() {
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/documents" element={<DocumentListPage />} />
                   <Route path="/documents/:id" element={
-                    <Suspense fallback={<div className="loading-center"><div className="spinner" /><p>Loading editor\u2026</p></div>}>
+                    <Suspense fallback={<div className="loading-center"><div className="spinner" /><p>Loading editor…</p></div>}>
                       <DocumentEditorPage />
                     </Suspense>
                   } />
@@ -40,6 +41,7 @@ export default function App() {
                   <Route path="/documents/:id/approval" element={<ApprovalPage />} />
                   <Route path="/search" element={<SearchPage />} />
                   <Route path="/folders/:id" element={<FolderDetailPage />} />
+                  <Route path="/directory" element={<DirectoryPage />} />
                   <Route path="*" element={<Navigate to="/documents" replace />} />
                 </Route>
               </Route>

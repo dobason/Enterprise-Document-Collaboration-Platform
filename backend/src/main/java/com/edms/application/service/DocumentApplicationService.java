@@ -20,6 +20,8 @@ import com.edms.infrastructure.persistence.entity.PermissionEntity;
 import com.edms.infrastructure.persistence.repository.DocumentJpaRepository;
 import com.edms.infrastructure.persistence.repository.DocumentVersionJpaRepository;
 import com.edms.infrastructure.persistence.repository.PermissionJpaRepository;
+import com.edms.infrastructure.persistence.repository.FolderJpaRepository;
+import com.edms.infrastructure.persistence.repository.UserJpaRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -38,31 +40,39 @@ public class DocumentApplicationService {
     private final DocumentJpaRepository documentRepository;
     private final DocumentVersionJpaRepository versionRepository;
     private final PermissionJpaRepository permissionRepository;
+    private final FolderJpaRepository folderRepository;
+    private final UserJpaRepository userRepository;
     private final AuditService auditService;
     private final EventPublisher eventPublisher;
     private final StorageService storageService;
 
     public DocumentApplicationService(DocumentJpaRepository documentRepository,
-                                      DocumentVersionJpaRepository versionRepository,
-                                      PermissionJpaRepository permissionRepository,
-                                      AuditService auditService,
-                                      EventPublisher eventPublisher,
-                                      StorageService storageService) {
+            DocumentVersionJpaRepository versionRepository,
+            PermissionJpaRepository permissionRepository,
+            FolderJpaRepository folderRepository,
+            UserJpaRepository userRepository,
+            AuditService auditService,
+            EventPublisher eventPublisher,
+            StorageService storageService) {
         this.documentRepository = documentRepository;
         this.versionRepository = versionRepository;
         this.permissionRepository = permissionRepository;
+        this.folderRepository = folderRepository;
+        this.userRepository = userRepository;
         this.auditService = auditService;
         this.eventPublisher = eventPublisher;
         this.storageService = storageService;
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<DocumentDto> getDocuments(int page, int limit, String sortBy, String sortOrder, String currentUserId) {
+    public PageResponse<DocumentDto> getDocuments(int page, int limit, String sortBy, String sortOrder,
+            String currentUserId) {
         return getDocuments(page, limit, sortBy, sortOrder, null, currentUserId);
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<DocumentDto> getDocuments(int page, int limit, String sortBy, String sortOrder, String folderId, String currentUserId) {
+    public PageResponse<DocumentDto> getDocuments(int page, int limit, String sortBy, String sortOrder, String folderId,
+            String currentUserId) {
         int pageNumber = page > 0 ? page - 1 : 0;
         Sort.Direction direction = "desc".equalsIgnoreCase(sortOrder) ? Sort.Direction.DESC : Sort.Direction.ASC;
         String field = (sortBy != null && !sortBy.isBlank()) ? sortBy : "createdAt";
@@ -100,6 +110,19 @@ public class DocumentApplicationService {
         String docId = UUID.randomUUID().toString();
         String versionId = UUID.randomUUID().toString();
 
+        String departmentId = null;
+        if (request.getFolderId() != null && !request.getFolderId().isBlank()) {
+            departmentId = folderRepository.findById(request.getFolderId())
+                    .map(com.edms.infrastructure.persistence.entity.FolderEntity::getDepartmentId)
+                    .orElse(null);
+        }
+        if (departmentId == null) {
+            String ownerId = currentUserId != null ? currentUserId : "u1";
+            departmentId = userRepository.findById(ownerId)
+                    .map(com.edms.infrastructure.persistence.entity.UserEntity::getDepartmentId)
+                    .orElse(null);
+        }
+
         DocumentEntity entity = DocumentEntity.builder()
                 .id(docId)
                 .title(request.getTitle())
@@ -107,6 +130,7 @@ public class DocumentApplicationService {
                 .status(DocumentStatus.DRAFT)
                 .ownerId(currentUserId != null ? currentUserId : "u1")
                 .folderId(request.getFolderId())
+                .departmentId(departmentId)
                 .content(request.getContent())
                 .fileName(request.getFileName())
                 .fileType(request.getFileType())
@@ -190,7 +214,8 @@ public class DocumentApplicationService {
         return new FileDownload(content, fileName, entity.getFileType());
     }
 
-    public record FileDownload(byte[] content, String fileName, String contentType) {}
+    public record FileDownload(byte[] content, String fileName, String contentType) {
+    }
 
     public DocumentDto mapToDto(DocumentEntity entity) {
         return DocumentDto.builder()

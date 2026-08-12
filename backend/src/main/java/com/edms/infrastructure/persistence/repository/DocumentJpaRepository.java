@@ -33,4 +33,6 @@ public interface DocumentJpaRepository extends JpaRepository<DocumentEntity, Str
 
     @Query("SELECT COUNT(d) FROM DocumentEntity d WHERE d.deletedAt IS NULL AND d.status = 'APPROVED' AND d.updatedAt >= :startOfMonth")
     long countApprovedThisMonth(@Param("startOfMonth") Instant startOfMonth);
+
+    long countByDepartmentIdAndDeletedAtIsNull(String departmentId);
 }
