@@ -10,13 +10,14 @@ import {
   Menu,
   X,
   ChevronDown,
+  Shield
 } from 'lucide-react';
 
-const navItems = [
+const baseNavItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/documents', label: 'Documents', icon: FileText },
   { to: '/search', label: 'Search', icon: Search },
-  { to: '/folders/f1', label: 'Folders', icon: Folder },
+  { to: '/folders', label: 'Folders', icon: Folder },
 ];
 
 export default function Layout() {
@@ -24,6 +25,11 @@ export default function Layout() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+
+  const navItems = [
+    ...baseNavItems,
+    ...(user?.role === 'ADMIN' ? [{ to: '/admin', label: 'Admin Panel', icon: Shield }] : [])
+  ];
 
   const handleLogout = () => {
     logout();

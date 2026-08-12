@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 
 const STATUS_CONFIG = {
-  DRAFT: { color: 'badge-draft', icon: Clock },
   PENDING: { color: 'badge-pending', icon: Clock },
   APPROVED: { color: 'badge-approved', icon: CheckCircle },
   REJECTED: { color: 'badge-rejected', icon: XCircle },
@@ -32,6 +31,8 @@ export default function ApprovalPage() {
   const [approvalHistory, setApprovalHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -76,8 +77,15 @@ export default function ApprovalPage() {
           addToast('Document approved', 'success');
           break;
         case 'reject':
-          updated = await rejectDocument(id);
+          if (!rejectReason.trim()) {
+            addToast('Reject reason is required', 'error');
+            setActionLoading(null);
+            return;
+          }
+          updated = await rejectDocument(id, rejectReason.trim());
           addToast('Document rejected', 'info');
+          setShowRejectModal(false);
+          setRejectReason('');
           break;
         default:
           return;
@@ -114,9 +122,10 @@ export default function ApprovalPage() {
   }
 
   const StatusIcon = STATUS_CONFIG[doc.status]?.icon || Clock;
-  const canSubmit = userRole === 'OWNER' && doc.status === 'DRAFT';
-  const canApprove = userRole === 'MANAGER' && doc.status === 'PENDING';
-  const canReject = userRole === 'MANAGER' && doc.status === 'PENDING';
+  const isAdmin = user?.role === 'ADMIN';
+  const canSubmit = false; // documents start as PENDING, no need to submit
+  const canApprove = (isAdmin || userRole === 'MANAGER' || userRole === 'OWNER') && doc.status === 'PENDING';
+  const canReject = (isAdmin || userRole === 'MANAGER' || userRole === 'OWNER') && doc.status === 'PENDING';
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -176,21 +185,19 @@ export default function ApprovalPage() {
             )}
             {canReject && (
               <button
-                onClick={() => handleAction('reject')}
+                onClick={() => setShowRejectModal(true)}
                 disabled={actionLoading === 'reject'}
                 className="btn btn-danger"
               >
-                {actionLoading === 'reject' ? (
-                  <div className="spinner spinner-sm border-white border-t-transparent" />
-                ) : <XCircle size={16} />}
+                <XCircle size={16} />
                 Reject
               </button>
             )}
           </div>
         </div>
 
-        {!canSubmit && !canApprove && !canReject && doc.status === 'DRAFT' && (
-          <p className="text-sm text-slate-400 mt-4">Only the document owner can submit for approval.</p>
+        {!canApprove && !canReject && doc.status === 'PENDING' && (
+          <p className="text-sm text-slate-400 mt-4">Only admin or document owner can approve/reject.</p>
         )}
         {doc.status === 'APPROVED' && (
           <p className="text-sm text-green-600 mt-4">This document has been approved and is publicly available.</p>
@@ -239,6 +246,55 @@ export default function ApprovalPage() {
           </div>
         )}
       </div>
+      {/* Reject Modal */}
+      {showRejectModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => !actionLoading && setShowRejectModal(false)} />
+          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+              <XCircle size={20} className="text-red-600" />
+              Reject Document
+            </h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="rejectReason" className="block text-sm font-medium text-slate-700 mb-1.5">
+                  Reason for rejection <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  id="rejectReason"
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  className="input min-h-[100px] py-2"
+                  placeholder="Please specify why this document is being rejected..."
+                  disabled={actionLoading === 'reject'}
+                  autoFocus
+                />
+              </div>
+              
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowRejectModal(false)}
+                  disabled={actionLoading === 'reject'}
+                  className="btn btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleAction('reject')}
+                  disabled={actionLoading === 'reject' || !rejectReason.trim()}
+                  className="btn btn-danger"
+                >
+                  {actionLoading === 'reject' ? (
+                    <div className="spinner spinner-sm border-white border-t-transparent" />
+                  ) : 'Confirm Rejection'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

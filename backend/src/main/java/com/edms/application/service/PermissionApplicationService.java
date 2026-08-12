@@ -142,6 +142,11 @@ public class PermissionApplicationService {
 
     @Transactional(readOnly = true)
     public UserRoleResponse getUserRoleForDocument(String documentId, String userId) {
+        Optional<UserEntity> userOpt = userRepository.findById(userId);
+        if (userOpt.isPresent() && (userOpt.get().getRole() == com.edms.domain.enums.UserRole.ADMIN)) {
+            return UserRoleResponse.builder().role("ADMIN").build();
+        }
+
         Optional<PermissionEntity> permOpt = permissionRepository.findByDocumentIdAndUserId(documentId, userId);
         String role = permOpt.map(p -> p.getRole().name()).orElse("NONE");
         return UserRoleResponse.builder().role(role).build();

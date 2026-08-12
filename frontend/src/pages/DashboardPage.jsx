@@ -42,6 +42,8 @@ export default function DashboardPage() {
     );
   }
 
+  
+
   const maxDeptCount = stats?.docsByDepartment?.length > 0
     ? stats.docsByDepartment.reduce((max, d) => (d.count > max ? d.count : max), 0)
     : 1;

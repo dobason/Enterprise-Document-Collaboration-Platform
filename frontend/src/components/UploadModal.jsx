@@ -2,16 +2,30 @@ import React, { useState, useRef } from 'react';
 import { uploadFile } from '../api/upload.api';
 import { Upload, File, X, CheckCircle } from 'lucide-react';
 
-export default function UploadModal({ onClose, onUploaded }) {
+const ALLOWED_EXTENSIONS = ['.png', '.txt', '.doc', '.docx', '.pdf'];
+
+import mammoth from 'mammoth';
+
+export default function UploadModal({ onClose, onUploaded, folderId }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [done, setDone] = useState(false);
   const fileInputRef = useRef(null);
 
+  const validateFile = (file) => {
+    if (!file) return false;
+    const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+      alert(`Invalid file type. Only ${ALLOWED_EXTENSIONS.join(', ')} are allowed.`);
+      return false;
+    }
+    return true;
+  };
+
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
-    if (file) {
+    if (validateFile(file)) {
       setSelectedFile(file);
       setProgress(0);
       setDone(false);
@@ -21,11 +35,34 @@ export default function UploadModal({ onClose, onUploaded }) {
   const handleDrop = (e) => {
     e.preventDefault();
     const file = e.dataTransfer.files[0];
-    if (file) {
+    if (validateFile(file)) {
       setSelectedFile(file);
       setProgress(0);
       setDone(false);
     }
+  };
+
+  const extractText = async (file) => {
+    try {
+      if (file.name.endsWith('.txt')) {
+        return await file.text();
+      } else if (file.name.endsWith('.docx') || file.name.endsWith('.doc')) {
+        const arrayBuffer = await file.arrayBuffer();
+        const options = {
+          styleMap: [
+            "p[style-name='Heading 1'] => h1:fresh",
+            "p[style-name='Heading 2'] => h2:fresh",
+            "p[style-name='Heading 3'] => h3:fresh",
+            "p[style-name='Quote'] => blockquote:fresh"
+          ]
+        };
+        const result = await mammoth.convertToHtml({ arrayBuffer }, options);
+        return result.value;
+      }
+    } catch (e) {
+      console.error('Failed to extract text:', e);
+    }
+    return null;
   };
 
   const handleUpload = async () => {
@@ -35,7 +72,9 @@ export default function UploadModal({ onClose, onUploaded }) {
     setProgress(0);
 
     try {
-      await uploadFile(selectedFile, (p) => setProgress(p));
+      const extractedContent = await extractText(selectedFile);
+      
+      await uploadFile(selectedFile, (p) => setProgress(p), folderId, extractedContent);
       setProgress(100);
       setDone(true);
 
@@ -84,11 +123,12 @@ export default function UploadModal({ onClose, onUploaded }) {
               Drop a file here, or click to browse
             </p>
             <p className="text-xs text-slate-400 mt-1">
-              Any file type supported
+              Allowed types: {ALLOWED_EXTENSIONS.join(', ')}
             </p>
             <input
               ref={fileInputRef}
               type="file"
+              accept=".png,.txt,.doc,.docx,.pdf"
               onChange={handleFileSelect}
               className="hidden"
             />
@@ -154,3 +194,4 @@ export default function UploadModal({ onClose, onUploaded }) {
     </div>
   );
 }
+

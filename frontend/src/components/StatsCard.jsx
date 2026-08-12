@@ -1,37 +1,7 @@
 import React, { memo, useEffect, useRef, useState } from 'react';
 
-function AnimatedNumber({ value, duration = 1000 }) {
-  const [display, setDisplay] = useState(0);
-  const rafRef = useRef(null);
-  const prevValueRef = useRef(0);
-
-  useEffect(() => {
-    if (value === prevValueRef.current) return;
-    prevValueRef.current = value;
-
-    const startValue = display;
-    const startTime = performance.now();
-
-    const animate = (now) => {
-      const elapsed = now - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-
-      setDisplay(Math.round(startValue + (value - startValue) * eased));
-
-      if (progress < 1) {
-        rafRef.current = requestAnimationFrame(animate);
-      }
-    };
-
-    rafRef.current = requestAnimationFrame(animate);
-
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, [value, duration]);
-
-  return <span>{display.toLocaleString()}</span>;
+function AnimatedNumber({ value }) {
+  return <span>{Number(value || 0).toLocaleString()}</span>;
 }
 
 function StatsCardInner({ icon: Icon, label, value, color = 'primary' }) {

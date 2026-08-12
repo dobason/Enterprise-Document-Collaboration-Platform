@@ -19,6 +19,22 @@ export async function login(email, password) {
   return { token: data.token, user: data.user };
 }
 
+export async function register(name, email, password) {
+  if (!name || !email || !password) {
+    throw new Error('All fields are required');
+  }
+
+  const data = await apiFetch('/auth/register', {
+    method: 'POST',
+    body: { name, email, password },
+  });
+
+  localStorage.setItem(TOKEN_KEY, data.token);
+  localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+
+  return { token: data.token, user: data.user };
+}
+
 export async function logout() {
   // Best-effort: báo backend logout, không quan trọng kết quả
   try {

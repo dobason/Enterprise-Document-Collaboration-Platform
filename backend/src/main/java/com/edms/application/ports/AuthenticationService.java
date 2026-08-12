@@ -5,6 +5,7 @@ import com.edms.api.dto.LoginRequest;
 import com.edms.api.dto.UserDto;
 
 public interface AuthenticationService {
+    AuthResponse register(com.edms.api.dto.RegisterRequest request);
     AuthResponse login(LoginRequest request);
     UserDto getCurrentUser(String token);
     void logout(String token);

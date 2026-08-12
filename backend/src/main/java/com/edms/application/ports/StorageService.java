@@ -1,6 +1,7 @@
 package com.edms.application.ports;
 
 public interface StorageService {
+    String buildKey(String fileId, String fileName);
     String generatePresignedUploadUrl(String fileId, String fileName, String contentType);
     void uploadFile(String key, byte[] content, String contentType);
     byte[] downloadFile(String key);

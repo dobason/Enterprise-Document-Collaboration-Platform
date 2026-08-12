@@ -11,21 +11,21 @@ function VersionPanel({ documentId, versions: initialVersions, onRollback }) {
   const currentVersion = versions.length > 0 ? versions[0] : null;
 
   const handleRollback = async (version) => {
-    if (!window.confirm(`Restore version ${version.versionNumber}? This will create a new version with the old content.`)) {
+    if (!window.confirm(`Set version ${version.versionNumber} as the main version? This will restore its content as the current version.`)) {
       return;
     }
 
     setRollbacking(version.id);
     try {
       const newVersion = await rollbackVersion(documentId, version.id);
-      addToast(`Restored to version ${version.versionNumber}`, 'success');
+      addToast(`Set version ${version.versionNumber} as main`, 'success');
       onRollback?.(newVersion);
 
       // Refresh versions
       const updated = await getVersions(documentId);
       setVersions(updated);
     } catch (err) {
-      addToast('Rollback failed: ' + err.message, 'error');
+      addToast('Failed to set main version: ' + err.message, 'error');
     } finally {
       setRollbacking(null);
     }
@@ -89,7 +89,7 @@ function VersionPanel({ documentId, versions: initialVersions, onRollback }) {
                   ) : (
                     <>
                       <RotateCcw size={12} />
-                      Rollback
+                      Set as Main
                     </>
                   )}
                 </button>

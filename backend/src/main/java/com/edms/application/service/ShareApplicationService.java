@@ -80,13 +80,43 @@ public class ShareApplicationService {
         return ShareListResponse.builder().items(dtos).build();
     }
 
+    @Transactional(readOnly = true)
+    public com.edms.api.dto.DocumentDto getSharedDocument(String token) {
+        ShareEntity share = shareRepository.findByToken(token)
+                .orElseThrow(() -> new ResourceNotFoundException("Invalid share token"));
+        
+        if (share.getExpiresAt().isBefore(Instant.now())) {
+            throw new IllegalArgumentException("Share link has expired");
+        }
+
+        com.edms.infrastructure.persistence.entity.DocumentEntity doc = documentRepository.findById(share.getDocumentId())
+                .orElseThrow(() -> new ResourceNotFoundException("Document not found"));
+        
+        if (doc.getDeletedAt() != null) {
+            throw new ResourceNotFoundException("Document has been deleted");
+        }
+
+        return com.edms.api.dto.DocumentDto.builder()
+                .id(doc.getId())
+                .title(doc.getTitle())
+                .type(doc.getType())
+                .status(doc.getStatus().name())
+                .folderId(doc.getFolderId())
+                .ownerId(doc.getOwnerId())
+                .createdAt(doc.getCreatedAt())
+                .updatedAt(doc.getUpdatedAt())
+                .currentVersionId(doc.getCurrentVersionId())
+                .content(doc.getContent())
+                .build();
+    }
+
     private ShareDto mapToDto(ShareEntity entity) {
         return ShareDto.builder()
                 .id(entity.getId())
                 .documentId(entity.getDocumentId())
                 .sharedWithEmail(entity.getSharedWithEmail())
                 .expiresAt(entity.getExpiresAt())
-                .link("http://localhost:8080/share/" + entity.getToken())
+                .link("/share/" + entity.getToken()) // Return relative path for frontend routing
                 .build();
     }
 }

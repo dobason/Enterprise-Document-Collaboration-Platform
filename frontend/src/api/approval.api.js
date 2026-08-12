@@ -20,8 +20,8 @@ export async function approveDocument(docId) {
   return runApprovalAction('/approval/approve', docId);
 }
 
-export async function rejectDocument(docId) {
-  return runApprovalAction('/approval/reject', docId, { reason: 'No reason specified' });
+export async function rejectDocument(docId, reason = 'No reason specified') {
+  return runApprovalAction('/approval/reject', docId, { reason });
 }
 
 export async function getApprovalHistory(docId) {

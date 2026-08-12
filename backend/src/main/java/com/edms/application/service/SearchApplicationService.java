@@ -27,11 +27,17 @@ public class SearchApplicationService {
     }
 
     @Transactional(readOnly = true)
-    public SearchResponse searchDocuments(String query, String type, String status, String currentUserId) {
+    public SearchResponse searchDocuments(String query, String type, String status, String currentUserId, boolean isAdmin) {
         Specification<DocumentEntity> spec = (root, q, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
             predicates.add(cb.isNull(root.get("deletedAt")));
+
+            if (!isAdmin) {
+                Predicate isOwner = cb.equal(root.get("ownerId"), currentUserId);
+                Predicate isApproved = cb.equal(root.get("status"), DocumentStatus.APPROVED);
+                predicates.add(cb.or(isOwner, isApproved));
+            }
 
             if (query != null && !query.isBlank()) {
                 String pattern = "%" + query.toLowerCase() + "%";
@@ -58,7 +64,7 @@ public class SearchApplicationService {
         List<DocumentEntity> results = documentRepository.findAll(spec);
 
         List<DocumentDto> dtos = results.stream()
-                .map(documentApplicationService::mapToDto)
+                .map(doc -> documentApplicationService.mapToDto(doc, currentUserId, isAdmin))
                 .collect(Collectors.toList());
 
         return SearchResponse.builder()

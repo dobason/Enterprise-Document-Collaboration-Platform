@@ -33,6 +33,24 @@ public class AuthController {
         this.authService = authService;
     }
 
+    @PostMapping("/register")
+    @Operation(
+        summary = "Đăng ký tài khoản",
+        description = "Tạo tài khoản mới với vai trò VIEWER mặc định",
+        requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            content = @Content(
+                mediaType = "application/json",
+                examples = {
+                    @ExampleObject(name = "👤 New User", value = "{\"name\":\"Nguyen Van A\",\"email\":\"nva@edms.vn\",\"password\":\"Password123!\"}")
+                }
+            )
+        )
+    )
+    public ResponseEntity<AuthResponse> register(@Valid @RequestBody com.edms.api.dto.RegisterRequest request) {
+        AuthResponse response = authService.register(request);
+        return ResponseEntity.ok(response);
+    }
+
     @PostMapping("/login")
     @Operation(
         summary = "Đăng nhập hệ thống",

@@ -149,7 +149,7 @@ export default function RichTextEditor({
       )}
 
       <div
-        className="px-4 py-3 min-h-[300px] cursor-text"
+        className="px-4 py-3 min-h-[300px] cursor-text text-justify"
         onClick={focusEditor}
         role="button"
         tabIndex={0}

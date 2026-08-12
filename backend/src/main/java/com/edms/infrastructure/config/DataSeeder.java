@@ -108,23 +108,23 @@ public class DataSeeder implements CommandLineRunner {
 
         UserEntity owner = userRepository.save(UserEntity.builder()
                 .id("u1").email("owner@edms.vn").password(encodedPass).name("Nguyen Van Owner")
-                .role(UserRole.OWNER).department("Engineering").build());
+                .role(UserRole.USER).department("Engineering").departmentId(eng.getId()).build());
 
         UserEntity editor = userRepository.save(UserEntity.builder()
                 .id("u2").email("editor@edms.vn").password(encodedPass).name("Tran Thi Editor")
-                .role(UserRole.EDITOR).department("Engineering").build());
+                .role(UserRole.USER).department("Engineering").departmentId(eng.getId()).build());
 
         UserEntity manager = userRepository.save(UserEntity.builder()
                 .id("u3").email("manager@edms.vn").password(encodedPass).name("Le Van Manager")
-                .role(UserRole.MANAGER).department("Management").build());
+                .role(UserRole.USER).department("Management").departmentId(mgmt.getId()).build());
 
         UserEntity viewer = userRepository.save(UserEntity.builder()
                 .id("u4").email("viewer@edms.vn").password(encodedPass).name("Pham Van Viewer")
-                .role(UserRole.VIEWER).department("HR").build());
+                .role(UserRole.USER).department("HR").departmentId(hr.getId()).build());
 
         UserEntity admin = userRepository.save(UserEntity.builder()
                 .id("u5").email("admin@edms.vn").password(encodedPass).name("System Admin")
-                .role(UserRole.ADMIN).department("Management").build());
+                .role(UserRole.ADMIN).department("Management").departmentId(mgmt.getId()).build());
 
         // 3. Folders
         FolderEntity f1 = folderRepository.save(FolderEntity.builder()

@@ -15,6 +15,10 @@ public class AuthApplicationService {
         this.authenticationService = authenticationService;
     }
 
+    public AuthResponse register(com.edms.api.dto.RegisterRequest request) {
+        return authenticationService.register(request);
+    }
+
     public AuthResponse login(LoginRequest request) {
         return authenticationService.login(request);
     }

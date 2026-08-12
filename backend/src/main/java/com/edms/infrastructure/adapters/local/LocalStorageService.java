@@ -30,6 +30,14 @@ public class LocalStorageService implements StorageService {
     }
 
     @Override
+    public String buildKey(String fileId, String fileName) {
+        String safeName = (fileName != null && !fileName.isBlank())
+                ? Paths.get(fileName).getFileName().toString()
+                : fileId;
+        return fileId + "_" + safeName;
+    }
+
+    @Override
     public String generatePresignedUploadUrl(String fileId, String fileName, String contentType) {
         return "http://localhost:8088/upload/mock-put/" + fileId + "?fileName="
                 + URLEncoder.encode(fileName, StandardCharsets.UTF_8);

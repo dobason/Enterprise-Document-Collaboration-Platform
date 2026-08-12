@@ -115,16 +115,27 @@ public class UploadController {
                 ? Paths.get(request.getFileName()).getFileName().toString()
                 : "uploaded-file";
 
+        String contentStr = request.getExtractedContent();
+        if (contentStr == null || contentStr.isBlank()) {
+            contentStr = "{\"fileId\":\"" + request.getFileId() + "\",\"fileName\":\"" + safeName + "\"}";
+        }
+
+        String s3Key = storageService.buildKey(request.getFileId(), safeName);
+
         CreateDocumentRequest docReq = CreateDocumentRequest.builder()
                 .title(safeName.replaceFirst("\\.[^.]+$", ""))
                 .type(request.getFileType())
-                .content("{\"fileId\":\"" + request.getFileId() + "\",\"fileName\":\"" + safeName + "\"}")
+                .content(contentStr)
                 .fileName(safeName)
                 .fileType(request.getFileType())
-                .s3Key(safeName)
+                .s3Key(s3Key)
+                .folderId(request.getFolderId())
                 .build();
 
-        DocumentDto doc = documentService.createDocument(docReq, currentUserId);
+        boolean isAdmin = authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+
+        DocumentDto doc = documentService.createDocument(docReq, currentUserId, isAdmin);
         return ResponseEntity.status(HttpStatus.CREATED).body(doc);
     }
 }

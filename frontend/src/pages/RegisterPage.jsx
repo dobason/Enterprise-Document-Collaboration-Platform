@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate, Navigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { FileText, LogIn, AlertCircle } from 'lucide-react';
+import { FileText, UserPlus, AlertCircle } from 'lucide-react';
+import { register } from '../api/auth.api';
 
-export default function LoginPage() {
-  const { login, isAuthenticated } = useAuth();
+export default function RegisterPage() {
+  const { isAuthenticated, login } = useAuth(); // login from context updates context state
   const navigate = useNavigate();
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -19,17 +21,20 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
 
-    if (!email.trim() || !password.trim()) {
-      setError('Please enter both email and password');
+    if (!name.trim() || !email.trim() || !password.trim()) {
+      setError('Please enter name, email and password');
       return;
     }
 
     setLoading(true);
     try {
-      await login(email.trim(), password);
-      navigate('/', { replace: true });
+      // register function from api updates local storage and returns token/user
+      const data = await register(name.trim(), email.trim(), password);
+      // We need to sync AuthContext state, so we reload or update context.
+      // Easiest is to force a reload since context reads from localStorage on mount.
+      window.location.href = '/';
     } catch (err) {
-      setError(err.message || 'Login failed. Please try again.');
+      setError(err.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -47,11 +52,26 @@ export default function LoginPage() {
           <p className="text-sm text-slate-500 mt-1">Enterprise Document Management</p>
         </div>
 
-        {/* Login card */}
+        {/* Register card */}
         <div className="card p-8">
-          <h2 className="text-lg font-semibold text-slate-800 mb-6">Sign in to your account</h2>
+          <h2 className="text-lg font-semibold text-slate-800 mb-6">Create a new account</h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium text-slate-700 mb-1.5">
+                Full Name
+              </label>
+              <input
+                id="name"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="input"
+                placeholder="John Doe"
+                disabled={loading}
+              />
+            </div>
+
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1.5">
                 Email
@@ -78,8 +98,8 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="input"
-                placeholder="Enter your password"
-                autoComplete="current-password"
+                placeholder="Create a password"
+                autoComplete="new-password"
                 disabled={loading}
               />
             </div>
@@ -99,28 +119,23 @@ export default function LoginPage() {
               {loading ? (
                 <>
                   <div className="spinner spinner-sm border-white border-t-transparent" />
-                  Signing in\u2026
+                  Creating account\u2026
                 </>
               ) : (
                 <>
-                  <LogIn size={16} />
-                  Sign In
+                  <UserPlus size={16} />
+                  Sign Up
                 </>
               )}
             </button>
           </form>
 
-          <div className="mt-6 text-sm text-slate-500 text-center">
-            <p className="mb-2">
-              Don't have an account?{' '}
-              <Link to="/register" className="text-primary-600 font-medium hover:underline">
-                Sign Up
-              </Link>
-            </p>
-            <p className="text-xs text-slate-400">
-              Demo accounts &mdash; owner@edms.vn / editor@edms.vn / manager@edms.vn / viewer@edms.vn / admin@edms.vn (password: Password123!)
-            </p>
-          </div>
+          <p className="mt-6 text-sm text-slate-500 text-center">
+            Already have an account?{' '}
+            <Link to="/login" className="text-primary-600 font-medium hover:underline">
+              Sign In
+            </Link>
+          </p>
         </div>
       </div>
     </div>

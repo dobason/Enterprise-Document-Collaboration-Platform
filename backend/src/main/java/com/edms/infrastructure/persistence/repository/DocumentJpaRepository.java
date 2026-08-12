@@ -26,6 +26,12 @@ public interface DocumentJpaRepository extends JpaRepository<DocumentEntity, Str
 
     Page<DocumentEntity> findByDeletedAtIsNullAndFolderId(String folderId, Pageable pageable);
 
+    @Query("SELECT d FROM DocumentEntity d WHERE d.deletedAt IS NULL AND (:isAdmin = true OR d.ownerId = :userId OR d.status = 'APPROVED')")
+    Page<DocumentEntity> findAllActiveForUser(@Param("isAdmin") boolean isAdmin, @Param("userId") String userId, Pageable pageable);
+
+    @Query("SELECT d FROM DocumentEntity d WHERE d.deletedAt IS NULL AND d.folderId = :folderId AND (:isAdmin = true OR d.ownerId = :userId OR d.status = 'APPROVED')")
+    Page<DocumentEntity> findByFolderIdForUser(@Param("folderId") String folderId, @Param("isAdmin") boolean isAdmin, @Param("userId") String userId, Pageable pageable);
+
     Optional<DocumentEntity> findByIdAndDeletedAtIsNull(String id);
 
     @Query("SELECT COUNT(d) FROM DocumentEntity d WHERE d.deletedAt IS NULL AND d.status = :status")
@@ -33,4 +39,11 @@ public interface DocumentJpaRepository extends JpaRepository<DocumentEntity, Str
 
     @Query("SELECT COUNT(d) FROM DocumentEntity d WHERE d.deletedAt IS NULL AND d.status = 'APPROVED' AND d.updatedAt >= :startOfMonth")
     long countApprovedThisMonth(@Param("startOfMonth") Instant startOfMonth);
+
+    @Query("SELECT dp.name, COUNT(d) FROM DocumentEntity d " +
+           "JOIN UserEntity u ON d.ownerId = u.id " +
+           "JOIN DepartmentEntity dp ON u.departmentId = dp.id " +
+           "WHERE d.deletedAt IS NULL " +
+           "GROUP BY dp.name")
+    List<Object[]> countDocumentsByDepartmentRaw();
 }

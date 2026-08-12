@@ -57,23 +57,23 @@ public class DocumentApplicationService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<DocumentDto> getDocuments(int page, int limit, String sortBy, String sortOrder, String currentUserId) {
-        return getDocuments(page, limit, sortBy, sortOrder, null, currentUserId);
+    public PageResponse<DocumentDto> getDocuments(int page, int limit, String sortBy, String sortOrder, String currentUserId, boolean isAdmin) {
+        return getDocuments(page, limit, sortBy, sortOrder, null, currentUserId, isAdmin);
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<DocumentDto> getDocuments(int page, int limit, String sortBy, String sortOrder, String folderId, String currentUserId) {
+    public PageResponse<DocumentDto> getDocuments(int page, int limit, String sortBy, String sortOrder, String folderId, String currentUserId, boolean isAdmin) {
         int pageNumber = page > 0 ? page - 1 : 0;
         Sort.Direction direction = "desc".equalsIgnoreCase(sortOrder) ? Sort.Direction.DESC : Sort.Direction.ASC;
         String field = (sortBy != null && !sortBy.isBlank()) ? sortBy : "createdAt";
 
         Pageable pageable = PageRequest.of(pageNumber, limit, Sort.by(direction, field));
         Page<DocumentEntity> pageResult = (folderId != null && !folderId.isBlank())
-                ? documentRepository.findByDeletedAtIsNullAndFolderId(folderId, pageable)
-                : documentRepository.findAllActive(pageable);
+                ? documentRepository.findByFolderIdForUser(folderId, isAdmin, currentUserId, pageable)
+                : documentRepository.findAllActiveForUser(isAdmin, currentUserId, pageable);
 
         List<DocumentDto> dtos = pageResult.getContent().stream()
-                .map(this::mapToDto)
+                .map(doc -> mapToDto(doc, currentUserId, isAdmin))
                 .collect(Collectors.toList());
 
         return PageResponse.<DocumentDto>builder()
@@ -86,17 +86,21 @@ public class DocumentApplicationService {
     }
 
     @Transactional
-    public DocumentDto getDocumentById(String id, String currentUserId) {
+    public DocumentDto getDocumentById(String id, String currentUserId, boolean isAdmin) {
         DocumentEntity entity = documentRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + id));
 
+        if (!isAdmin && !entity.getOwnerId().equals(currentUserId) && entity.getStatus() != DocumentStatus.APPROVED) {
+            throw new ForbiddenException("You do not have permission to view this document");
+        }
+
         auditService.log(id, AuditAction.VIEW, currentUserId, "Viewed document");
 
-        return mapToDto(entity);
+        return mapToDto(entity, currentUserId, isAdmin);
     }
 
     @Transactional
-    public DocumentDto createDocument(CreateDocumentRequest request, String currentUserId) {
+    public DocumentDto createDocument(CreateDocumentRequest request, String currentUserId, boolean isAdmin) {
         String docId = UUID.randomUUID().toString();
         String versionId = UUID.randomUUID().toString();
 
@@ -104,7 +108,7 @@ public class DocumentApplicationService {
                 .id(docId)
                 .title(request.getTitle())
                 .type(request.getType())
-                .status(DocumentStatus.DRAFT)
+                .status(DocumentStatus.PENDING)
                 .ownerId(currentUserId != null ? currentUserId : "u1")
                 .folderId(request.getFolderId())
                 .content(request.getContent())
@@ -142,13 +146,17 @@ public class DocumentApplicationService {
         auditService.log(docId, AuditAction.UPLOAD, currentUserId, "Created new document");
         eventPublisher.publish(new DocumentUploadedEvent(UUID.randomUUID().toString(), docId, currentUserId));
 
-        return mapToDto(savedDoc);
+        return mapToDto(savedDoc, currentUserId, isAdmin);
     }
 
     @Transactional
-    public DocumentDto updateDocument(String id, UpdateDocumentRequest request, String currentUserId) {
+    public DocumentDto updateDocument(String id, UpdateDocumentRequest request, String currentUserId, boolean isAdmin) {
         DocumentEntity doc = documentRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + id));
+
+        if (!isAdmin && !doc.getOwnerId().equals(currentUserId)) {
+            throw new ForbiddenException("Only admin or owner can update document");
+        }
 
         if (request.getTitle() != null) {
             doc.setTitle(request.getTitle());
@@ -162,13 +170,17 @@ public class DocumentApplicationService {
         doc.setUpdatedAt(Instant.now());
 
         DocumentEntity updated = documentRepository.save(doc);
-        return mapToDto(updated);
+        return mapToDto(updated, currentUserId, isAdmin);
     }
 
     @Transactional
-    public void deleteDocument(String id, String currentUserId) {
+    public void deleteDocument(String id, String currentUserId, boolean isAdmin) {
         DocumentEntity doc = documentRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + id));
+
+        if (!isAdmin && !doc.getOwnerId().equals(currentUserId)) {
+            throw new ForbiddenException("Only admin or owner can delete document");
+        }
 
         doc.setDeletedAt(Instant.now());
         documentRepository.save(doc);
@@ -178,9 +190,13 @@ public class DocumentApplicationService {
     }
 
     @Transactional(readOnly = true)
-    public FileDownload downloadDocument(String id, String currentUserId) {
+    public FileDownload downloadDocument(String id, String currentUserId, boolean isAdmin) {
         DocumentEntity entity = documentRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + id));
+
+        if (!isAdmin && !entity.getOwnerId().equals(currentUserId) && entity.getStatus() != DocumentStatus.APPROVED) {
+            throw new ForbiddenException("You do not have permission to download this document");
+        }
 
         auditService.log(id, AuditAction.DOWNLOAD, currentUserId, "Downloaded document");
 
@@ -192,12 +208,15 @@ public class DocumentApplicationService {
 
     public record FileDownload(byte[] content, String fileName, String contentType) {}
 
-    public DocumentDto mapToDto(DocumentEntity entity) {
+    public DocumentDto mapToDto(DocumentEntity entity, String currentUserId, boolean isAdmin) {
+        boolean isOwner = entity.getOwnerId().equals(currentUserId);
+        boolean canSeeStatus = isAdmin || isOwner;
+
         return DocumentDto.builder()
                 .id(entity.getId())
                 .title(entity.getTitle())
                 .type(entity.getType())
-                .status(entity.getStatus().name())
+                .status(canSeeStatus ? entity.getStatus().name() : null)
                 .ownerId(entity.getOwnerId())
                 .folderId(entity.getFolderId())
                 .content(entity.getContent())

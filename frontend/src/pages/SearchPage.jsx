@@ -12,14 +12,13 @@ import {
 } from 'lucide-react';
 
 const STATUS_BADGE = {
-  DRAFT: 'badge badge-draft',
   PENDING: 'badge badge-pending',
   APPROVED: 'badge badge-approved',
   REJECTED: 'badge badge-rejected',
 };
 
 const FILE_TYPES = ['Report', 'Contract', 'Policy'];
-const STATUSES = ['DRAFT', 'PENDING', 'APPROVED', 'REJECTED'];
+const STATUSES = ['PENDING', 'APPROVED', 'REJECTED'];
 
 export default function SearchPage() {
   const navigate = useNavigate();
@@ -241,7 +240,6 @@ export default function SearchPage() {
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/50">
                     <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Name</th>
-                    <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 hidden sm:table-cell">Type</th>
                     <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Status</th>
                     <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 hidden md:table-cell">Updated</th>
                   </tr>
@@ -258,9 +256,6 @@ export default function SearchPage() {
                           <FileText size={18} className="text-slate-400 shrink-0" />
                           <span className="text-sm font-medium text-slate-700 truncate max-w-[300px]">{doc.title}</span>
                         </div>
-                      </td>
-                      <td className="px-4 py-3.5 hidden sm:table-cell">
-                        <span className="text-sm text-slate-500">{doc.type}</span>
                       </td>
                       <td className="px-4 py-3.5">
                         <span className={STATUS_BADGE[doc.status] || 'badge'}>{doc.status}</span>

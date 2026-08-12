@@ -29,6 +29,39 @@ public class LocalAuthenticationService implements AuthenticationService {
     }
 
     @Override
+    public AuthResponse register(com.edms.api.dto.RegisterRequest request) {
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new IllegalArgumentException("Email is already registered");
+        }
+
+        UserEntity user = UserEntity.builder()
+                .id(java.util.UUID.randomUUID().toString())
+                .email(request.getEmail())
+                .name(request.getName())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .role(com.edms.domain.enums.UserRole.USER) // Default role
+                .createdAt(java.time.Instant.now())
+                .updatedAt(java.time.Instant.now())
+                .build();
+
+        userRepository.save(user);
+
+        String token = jwtTokenProvider.generateToken(user.getId(), user.getEmail(), user.getRole().name());
+
+        UserDto userDto = UserDto.builder()
+                .id(user.getId())
+                .email(user.getEmail())
+                .name(user.getName())
+                .role(user.getRole().name())
+                .build();
+
+        return AuthResponse.builder()
+                .token(token)
+                .user(userDto)
+                .build();
+    }
+
+    @Override
     public AuthResponse login(LoginRequest request) {
         UserEntity user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new UnauthorizedException("Invalid email or password"));

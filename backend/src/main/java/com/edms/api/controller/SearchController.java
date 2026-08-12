@@ -44,7 +44,9 @@ public class SearchController {
             @RequestParam(name = "status", required = false) String status,
             Authentication authentication) {
         String currentUserId = authentication != null ? authentication.getName() : "u1";
-        SearchResponse response = searchService.searchDocuments(query, type, status, currentUserId);
+        boolean isAdmin = authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        SearchResponse response = searchService.searchDocuments(query, type, status, currentUserId, isAdmin);
         return ResponseEntity.ok(response);
     }
 }
