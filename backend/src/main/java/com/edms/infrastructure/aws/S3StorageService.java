@@ -5,6 +5,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
+import software.amazon.awssdk.auth.credentials.AwsCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.core.sync.ResponseTransformer;
@@ -28,15 +31,18 @@ public class S3StorageService implements StorageService {
 
     private final S3Client s3Client;
     private final S3Presigner presigner;
+    private final AwsCredentialsProvider credentialsProvider;
     private final String bucket;
     private final Duration presignDuration;
 
     public S3StorageService(S3Client s3Client,
                             S3Presigner presigner,
+                            AwsCredentialsProvider credentialsProvider,
                             @Value("${aws.s3.bucket}") String bucket,
                             @Value("${aws.s3.presign-ttl-seconds:600}") int ttlSeconds) {
         this.s3Client = s3Client;
         this.presigner = presigner;
+        this.credentialsProvider = credentialsProvider;
         this.bucket = bucket;
         this.presignDuration = Duration.ofSeconds(ttlSeconds);
     }
@@ -62,7 +68,25 @@ public class S3StorageService implements StorageService {
                 .build();
 
         PresignedPutObjectRequest presigned = presigner.presignPutObject(presignReq);
-        return presigned.url().toString();
+        return appendSessionToken(presigned.url().toString());
+    }
+
+    // Khi dùng temporary credentials (STS, ví dụ Lambda Role), presigned URL cần kèm
+    // X-Amz-Security-Token để S3 xác thực.
+    private String appendSessionToken(String url) {
+        try {
+            AwsCredentials creds = credentialsProvider.resolveCredentials();
+            if (creds instanceof AwsSessionCredentials sessionCreds
+                    && sessionCreds.sessionToken() != null
+                    && !sessionCreds.sessionToken().isBlank()) {
+                String token = URLEncoder.encode(sessionCreds.sessionToken(), StandardCharsets.UTF_8);
+                String sep = url.contains("?") ? "&" : "?";
+                return url + sep + "X-Amz-Security-Token=" + token;
+            }
+        } catch (Exception e) {
+            // Nếu không resolve được credentials, trả về URL gốc
+        }
+        return url;
     }
 
     @Override

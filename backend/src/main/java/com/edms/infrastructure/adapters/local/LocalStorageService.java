@@ -15,7 +15,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 @Service
-@Profile({"mysql", "aws"})
+@Profile({"mysql"})
 public class LocalStorageService implements StorageService {
 
     private final Path uploadDir;

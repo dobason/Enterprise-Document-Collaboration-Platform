@@ -1,0 +1,90 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  EDMS Backend API - Spring Boot over AWS Lambda (Monolithic Lambda)
+
+Parameters:
+  CognitoUserPoolId:
+    Type: String
+    Description: Cognito User Pool ID (vd ap-southeast-1_xxxx)
+  CognitoClientId:
+    Type: String
+    Description: Cognito App Client ID
+  AuroraEndpoint:
+    Type: String
+    Description: Aurora MySQL cluster endpoint (không kèm port)
+  AwsRegion:
+    Type: String
+    Default: ap-southeast-1
+  S3BucketName:
+    Type: String
+    Description: S3 bucket chứa tài liệu
+  DbUserName:
+    Type: String
+    Default: admin
+  DbUserPass:
+    Type: String
+    NoEcho: true
+    Description: Mật khẩu Aurora (lưu an toàn - không commit)
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 2048 # Khuyến nghị cho Java Spring Boot để giảm Cold Start
+
+Resources:
+  EdmsApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: target/backend-java-1.0.0-SNAPSHOT.jar
+      Handler: com.edms.StreamLambdaHandler::handleRequest
+      Runtime: java17
+      Architectures:
+        - x86_64
+      Environment:
+        Variables:
+          SPRING_PROFILES_ACTIVE: aws
+          # Lưu ý: KHÔNG đặt AWS_REGION - đây là reserved key, Lambda tự set
+          COGNITO_REGION: !Ref AwsRegion
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
+          COGNITO_CLIENT_ID: !Ref CognitoClientId
+          AURORA_ENDPOINT: !Ref AuroraEndpoint
+          DB_USER_AWS: !Ref DbUserName
+          DB_PASS_AWS: !Ref DbUserPass
+          DB_NAME: edms
+          AWS_S3_BUCKET: !Ref S3BucketName
+          # Credentials AWS: dùng IAM Role của Lambda (không hardcode key).
+          # Chỉ cần IAM Role có quyền s3 + cognito-idp (xem AWS-COGNITO-REQUIREMENTS.md)
+      Policies:
+        - Statement:
+            - Sid: S3Access
+              Effect: Allow
+              Action:
+                - s3:PutObject
+                - s3:GetObject
+                - s3:DeleteObject
+                - s3:ListBucket
+              Resource: "*"
+            - Sid: CognitoAccess
+              Effect: Allow
+              Action:
+                - cognito-idp:InitiateAuth
+                - cognito-idp:RespondToAuthChallenge
+                - cognito-idp:GetUser
+              Resource: "*"
+      Events:
+        ProxyApiRoot:
+          Type: Api
+          Properties:
+            Path: /
+            Method: ANY
+        ProxyApiGreedy:
+          Type: Api
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+
+Outputs:
+  EdmsApiUrl:
+    Description: "API Gateway endpoint URL for Prod environment"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
