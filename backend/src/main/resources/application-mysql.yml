@@ -21,8 +21,14 @@ aws:
   region: ${AWS_REGION:ap-southeast-1}
   s3:
     bucket: ${AWS_S3_BUCKET:edms-docs-bucket-319602346700-ap-southeast-1-an}
-    access-key: ${AWS_ACCESS_KEY_ID:AKIAUU2OIZLGLQSB365B}
-    secret-key: ${AWS_SECRET_ACCESS_KEY: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}
+    access-key: ${AWS_ACCESS_KEY_ID}
+    secret-key: ${AWS_SECRET_ACCESS_KEY}
+  cognito:
+    region: ${COGNITO_REGION:${AWS_REGION:ap-southeast-1}}
+    user-pool-id: ${COGNITO_USER_POOL_ID:}
+    client-id: ${COGNITO_CLIENT_ID:}
+    access-key: ${AWS_ACCESS_KEY_ID}
+    secret-key: ${AWS_SECRET_ACCESS_KEY}
 
 jwt:
   secret: edmsEnterpriseSecretKeyForJwtAuthenticationTokenSigningMustBeVeryLong32BytesOrMore!
