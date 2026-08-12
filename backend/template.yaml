@@ -1,0 +1,38 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  EDMS Backend API - Spring Boot over AWS Lambda (Monolithic Lambda)
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 2048 # Khuyến nghị cho Java Spring Boot để giảm Cold Start
+
+Resources:
+  EdmsApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: target/backend-java-1.0.0-SNAPSHOT.jar
+      Handler: com.edms.StreamLambdaHandler::handleRequest
+      Runtime: java17
+      Architectures:
+        - x86_64
+      Environment:
+        Variables:
+          SPRING_PROFILES_ACTIVE: aws
+      Events:
+        ProxyApiRoot:
+          Type: Api
+          Properties:
+            Path: /
+            Method: ANY
+        ProxyApiGreedy:
+          Type: Api
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+
+Outputs:
+  EdmsApiUrl:
+    Description: "API Gateway endpoint URL for Prod environment"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"

@@ -4,3 +4,9 @@ uploads/
 .idea/
 .vscode/
 .DS_Store
+
+# Maven and large binaries
+.mvn/
+apache-maven-3.9.6/
+maven.zip
+sam.msi
