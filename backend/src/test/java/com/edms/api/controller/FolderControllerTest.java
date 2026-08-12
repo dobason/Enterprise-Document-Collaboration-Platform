@@ -1,4 +1,4 @@
-﻿package com.edms.api.controller;
+package com.edms.api.controller;
 
 import com.edms.api.dto.CreateFolderRequest;
 import com.edms.api.dto.FolderDto;
