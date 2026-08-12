@@ -91,10 +91,10 @@ export default function AdminFolderDetailPage() {
             <ArrowLeft size={18} />
           </button>
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">
+            <h1 className="page-title">
               {folder ? folder.name : 'Loading...'}
             </h1>
-            <p className="text-sm text-slate-500">Folder Documents</p>
+            <p className="page-subtitle">Folder Documents</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -117,6 +117,7 @@ export default function AdminFolderDetailPage() {
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
                   <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Document</th>
+                  <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Owner</th>
                   <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Status</th>
                   <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase text-right">Actions</th>
                 </tr>
@@ -131,6 +132,9 @@ export default function AdminFolderDetailPage() {
                         </div>
                         <span className="font-medium text-slate-800 hover:text-primary-600">{doc.title}</span>
                       </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm text-slate-600">{doc.ownerName || doc.ownerId || '-'}</span>
                     </td>
                     <td className="px-6 py-4">
                       <span className={`badge ${doc.status === 'APPROVED' ? 'bg-green-100 text-green-700' :
@@ -175,7 +179,7 @@ export default function AdminFolderDetailPage() {
                 ))}
                 {documents.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-6 py-8 text-center text-slate-500">
+                    <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
                       No documents in this folder.
                     </td>
                   </tr>

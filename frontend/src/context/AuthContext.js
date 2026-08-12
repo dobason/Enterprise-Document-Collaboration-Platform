@@ -8,6 +8,7 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Khôi phục phiên từ localStorage (giữ đăng nhập khi refresh trang).
   useEffect(() => {
     const session = authApi.getCurrentUser();
     if (session) {

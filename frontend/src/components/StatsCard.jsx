@@ -40,6 +40,7 @@ function StatsCardInner({ icon: Icon, label, value, color = 'primary' }) {
     success: 'bg-green-50 text-green-600',
     warning: 'bg-amber-50 text-amber-600',
     info: 'bg-cyan-50 text-cyan-600',
+    purple: 'bg-purple-50 text-purple-600',
   };
 
   const iconBg = colorMap[color] || colorMap.primary;

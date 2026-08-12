@@ -26,8 +26,8 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      await login(email.trim(), password);
-      navigate('/', { replace: true });
+      const result = await login(email.trim(), password);
+      navigate(result.user?.role === 'ADMIN' ? '/admin/dashboard' : '/', { replace: true });
     } catch (err) {
       setError(err.message || 'Login failed. Please try again.');
     } finally {
@@ -109,10 +109,6 @@ export default function LoginPage() {
               )}
             </button>
           </form>
-
-          <p className="mt-6 text-xs text-slate-400 text-center">
-            Demo accounts &mdash; owner@edms.vn / editor@edms.vn / manager@edms.vn / viewer@edms.vn / admin@edms.vn (password: Password123!)
-          </p>
         </div>
       </div>
     </div>

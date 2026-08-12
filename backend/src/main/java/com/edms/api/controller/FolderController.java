@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,7 +27,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/folders")
-@Tag(name = "📁 Folders", description = "Quản lý thư mục lưu trữ tài liệu")
+@Tag(name = "ðŸ“ Folders", description = "Quáº£n lÃ½ thÆ° má»¥c lÆ°u trá»¯ tÃ i liá»‡u")
 @SecurityRequirement(name = "bearerAuth")
 public class FolderController {
 
@@ -37,32 +38,33 @@ public class FolderController {
     }
 
     @GetMapping
-    @Operation(summary = "Lấy danh sách tất cả thư mục", description = "Trả về danh sách tất cả folder trong hệ thống")
+    @Operation(summary = "Láº¥y danh sÃ¡ch táº¥t cáº£ thÆ° má»¥c", description = "Tráº£ vá» danh sÃ¡ch táº¥t cáº£ folder trong há»‡ thá»‘ng")
     public ResponseEntity<FolderListResponse> getAllFolders() {
         List<FolderDto> folders = folderService.getAllFolders();
         return ResponseEntity.ok(FolderListResponse.builder().items(folders).build());
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Lấy chi tiết thư mục", description = "Trả về chi tiết của một thư mục theo ID. Mã mẫu: **f1**, **f2**")
+    @Operation(summary = "Láº¥y chi tiáº¿t thÆ° má»¥c", description = "Tráº£ vá» chi tiáº¿t cá»§a má»™t thÆ° má»¥c theo ID. MÃ£ máº«u: **f1**, **f2**")
     public ResponseEntity<FolderDto> getFolderById(
-            @Parameter(description = "ID thư mục", example = "f1")
+            @Parameter(description = "ID thÆ° má»¥c", example = "f1")
             @PathVariable("id") String id) {
         FolderDto folder = folderService.getFolderById(id);
         return ResponseEntity.ok(folder);
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'USER')")
     @Operation(
-        summary = "Tạo thư mục mới",
-        description = "Tạo một thư mục mới trong hệ thống",
+        summary = "Táº¡o thÆ° má»¥c má»›i",
+        description = "Táº¡o má»™t thÆ° má»¥c má»›i trong há»‡ thá»‘ng",
         requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
             content = @Content(
                 mediaType = "application/json",
                 examples = {
-                    @ExampleObject(name = "📁 Thư Mục Engineering", value = "{\"name\":\"Legal Contracts 2026\",\"department\":\"Engineering\"}"),
-                    @ExampleObject(name = "📁 Thư Mục HR", value = "{\"name\":\"HR Policies 2026\",\"department\":\"HR\"}"),
-                    @ExampleObject(name = "📁 Thư Mục Management", value = "{\"name\":\"Board Meeting Minutes\",\"department\":\"Management\"}")
+                    @ExampleObject(name = "ðŸ“ ThÆ° Má»¥c Engineering", value = "{\"name\":\"Legal Contracts 2026\",\"department\":\"Engineering\"}"),
+                    @ExampleObject(name = "ðŸ“ ThÆ° Má»¥c HR", value = "{\"name\":\"HR Policies 2026\",\"department\":\"HR\"}"),
+                    @ExampleObject(name = "ðŸ“ ThÆ° Má»¥c Management", value = "{\"name\":\"Board Meeting Minutes\",\"department\":\"Management\"}")
                 }
             )
         )
@@ -75,9 +77,10 @@ public class FolderController {
     }
 
     @DeleteMapping("/{id}")
-    @Operation(summary = "Xóa thư mục", description = "Xóa thư mục theo ID")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @Operation(summary = "XÃ³a thÆ° má»¥c", description = "XÃ³a thÆ° má»¥c theo ID")
     public ResponseEntity<Void> deleteFolder(
-            @Parameter(description = "ID thư mục cần xóa", example = "f2")
+            @Parameter(description = "ID thÆ° má»¥c cáº§n xÃ³a", example = "f2")
             @PathVariable("id") String id) {
         folderService.deleteFolder(id);
         return ResponseEntity.noContent().build();

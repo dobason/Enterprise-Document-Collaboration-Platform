@@ -26,11 +26,17 @@ public interface DocumentJpaRepository extends JpaRepository<DocumentEntity, Str
 
     Page<DocumentEntity> findByDeletedAtIsNullAndFolderId(String folderId, Pageable pageable);
 
-    @Query("SELECT d FROM DocumentEntity d WHERE d.deletedAt IS NULL AND (:isAdmin = true OR d.ownerId = :userId OR d.status = 'APPROVED')")
+    @Query("SELECT d FROM DocumentEntity d WHERE d.deletedAt IS NULL AND (:isAdmin = true OR EXISTS (" +
+           "SELECT 1 FROM PermissionEntity p WHERE p.documentId = d.id AND p.userId = :userId))")
     Page<DocumentEntity> findAllActiveForUser(@Param("isAdmin") boolean isAdmin, @Param("userId") String userId, Pageable pageable);
 
-    @Query("SELECT d FROM DocumentEntity d WHERE d.deletedAt IS NULL AND d.folderId = :folderId AND (:isAdmin = true OR d.ownerId = :userId OR d.status = 'APPROVED')")
+    @Query("SELECT d FROM DocumentEntity d WHERE d.deletedAt IS NULL AND d.folderId = :folderId AND (:isAdmin = true OR EXISTS (" +
+           "SELECT 1 FROM PermissionEntity p WHERE p.documentId = d.id AND p.userId = :userId))")
     Page<DocumentEntity> findByFolderIdForUser(@Param("folderId") String folderId, @Param("isAdmin") boolean isAdmin, @Param("userId") String userId, Pageable pageable);
+
+    @Query("SELECT d FROM DocumentEntity d WHERE d.deletedAt IS NULL AND EXISTS (" +
+           "SELECT 1 FROM PermissionEntity p WHERE p.documentId = d.id AND p.userId = :userId)")
+    List<DocumentEntity> findAllSharedWithUser(@Param("userId") String userId);
 
     Optional<DocumentEntity> findByIdAndDeletedAtIsNull(String id);
 
@@ -41,8 +47,7 @@ public interface DocumentJpaRepository extends JpaRepository<DocumentEntity, Str
     long countApprovedThisMonth(@Param("startOfMonth") Instant startOfMonth);
 
     @Query("SELECT dp.name, COUNT(d) FROM DocumentEntity d " +
-           "JOIN UserEntity u ON d.ownerId = u.id " +
-           "JOIN DepartmentEntity dp ON u.departmentId = dp.id " +
+           "LEFT JOIN DepartmentEntity dp ON d.departmentId = dp.id " +
            "WHERE d.deletedAt IS NULL " +
            "GROUP BY dp.name")
     List<Object[]> countDocumentsByDepartmentRaw();

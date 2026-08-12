@@ -60,10 +60,10 @@ export default function AdminDepartmentsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="page-header">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Departments</h1>
-          <p className="text-sm text-slate-500">Manage organizational departments</p>
+          <h1 className="page-title">Departments</h1>
+          <p className="page-subtitle">Manage organizational departments</p>
         </div>
         <button onClick={() => openModal()} className="btn btn-primary">
           <Plus size={16} /> New Department

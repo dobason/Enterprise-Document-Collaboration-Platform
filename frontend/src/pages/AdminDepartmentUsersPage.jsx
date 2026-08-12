@@ -35,10 +35,10 @@ export default function AdminDepartmentUsersPage() {
           <ArrowLeft size={18} />
         </button>
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+          <h1 className="page-title flex items-center gap-2">
             <Building2 size={24} className="text-primary-600" /> Department Users
           </h1>
-          <p className="text-sm text-slate-500">View users within this department</p>
+          <p className="page-subtitle">View users within this department</p>
         </div>
       </div>
 

@@ -109,10 +109,16 @@ public class CognitoJwtValidator implements TokenValidator {
     }
 
     private String mapRole(List<String> groups) {
-        if (groups != null && groups.contains("ADMIN")) {
+        if (groups == null || groups.isEmpty()) {
+            return "USER";
+        }
+        if (groups.contains("ADMIN")) {
             return "ADMIN";
         }
-        return "VIEWER";
+        if (groups.contains("MANAGER")) {
+            return "MANAGER";
+        }
+        return "USER";
     }
 
     private String mapDepartment(List<String> groups) {

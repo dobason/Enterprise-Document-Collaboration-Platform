@@ -1,4 +1,4 @@
-package com.edms.api.controller;
+﻿package com.edms.api.controller;
 
 import com.edms.api.dto.CreateDocumentRequest;
 import com.edms.api.dto.DocumentDto;
@@ -46,7 +46,7 @@ class DocumentControllerTest {
     private DocumentApplicationService documentService;
 
     @Test
-    @WithMockUser(username = "u1", roles = "OWNER")
+    @WithMockUser(username = "u1", roles = "USER")
     @DisplayName("GET /documents - Success")
     void getDocuments_Success() throws Exception {
         DocumentDto doc = DocumentDto.builder()
@@ -76,7 +76,7 @@ class DocumentControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "u1", roles = "OWNER")
+    @WithMockUser(username = "u1", roles = "USER")
     @DisplayName("GET /documents/{id} - Success")
     void getDocumentById_Success() throws Exception {
         DocumentDto doc = DocumentDto.builder()
@@ -97,7 +97,7 @@ class DocumentControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "u1", roles = "OWNER")
+    @WithMockUser(username = "u1", roles = "USER")
     @DisplayName("GET /documents/{id} - Not Found")
     void getDocumentById_NotFound() throws Exception {
         when(documentService.getDocumentById(eq("d999"), eq("u1"), anyBoolean()))
@@ -109,7 +109,7 @@ class DocumentControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "u1", roles = "OWNER")
+    @WithMockUser(username = "u1", roles = "USER")
     @DisplayName("POST /documents - Success")
     void createDocument_Success() throws Exception {
         CreateDocumentRequest request = CreateDocumentRequest.builder()
@@ -138,7 +138,7 @@ class DocumentControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "u1", roles = "OWNER")
+    @WithMockUser(username = "u1", roles = "USER")
     @DisplayName("DELETE /documents/{id} - Soft Delete Success")
     void deleteDocument_Success() throws Exception {
         mockMvc.perform(delete("/documents/d1"))

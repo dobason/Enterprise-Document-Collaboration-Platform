@@ -29,12 +29,12 @@ export default function AdminFoldersPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="page-header">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+          <h1 className="page-title flex items-center gap-2">
             <Folder size={24} className="text-primary-600" /> Folder Management
           </h1>
-          <p className="text-sm text-slate-500">Manage all folders in the system</p>
+          <p className="page-subtitle">Manage all folders in the system</p>
         </div>
       </div>
 

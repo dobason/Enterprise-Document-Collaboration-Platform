@@ -39,9 +39,12 @@ export async function apiFetch(path, { method = "GET", token, body } = {}) {
       // body rỗng hoặc không phải JSON
     }
     if (res.status === 401) {
-      // Token hết hạn / không hợp lệ -> xóa phiên
+      // Token hết hạn / không hợp lệ -> xóa phiên và đưa về trang login
       localStorage.removeItem("edms_token");
       localStorage.removeItem("edms_user");
+      if (!window.location.pathname.startsWith('/login')) {
+        window.location.href = '/login';
+      }
     }
     throw new Error(message);
   }

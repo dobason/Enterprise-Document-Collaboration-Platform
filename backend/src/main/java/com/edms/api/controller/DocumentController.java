@@ -18,6 +18,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,7 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/documents")
-@Tag(name = "📄 Documents", description = "Quản lý tài liệu: tạo, xem, chỉnh sửa, xóa")
+@Tag(name = "ðŸ“„ Documents", description = "Quáº£n lÃ½ tÃ i liá»‡u: táº¡o, xem, chá»‰nh sá»­a, xÃ³a")
 @SecurityRequirement(name = "bearerAuth")
 public class DocumentController {
 
@@ -43,19 +44,19 @@ public class DocumentController {
 
     @GetMapping
     @Operation(
-        summary = "Lấy danh sách tài liệu (có phân trang)",
-        description = "Trả về danh sách tất cả tài liệu chưa bị xóa, hỗ trợ phân trang và sắp xếp"
+        summary = "Láº¥y danh sÃ¡ch tÃ i liá»‡u (cÃ³ phÃ¢n trang)",
+        description = "Tráº£ vá» danh sÃ¡ch táº¥t cáº£ tÃ i liá»‡u chÆ°a bá»‹ xÃ³a, há»— trá»£ phÃ¢n trang vÃ  sáº¯p xáº¿p"
     )
     public ResponseEntity<PageResponse<DocumentDto>> getDocuments(
-            @Parameter(description = "Số trang (bắt đầu từ 1)", example = "1")
+            @Parameter(description = "Sá»‘ trang (báº¯t Ä‘áº§u tá»« 1)", example = "1")
             @RequestParam(name = "page", defaultValue = "1") int page,
-            @Parameter(description = "Số bản ghi mỗi trang", example = "10")
+            @Parameter(description = "Sá»‘ báº£n ghi má»—i trang", example = "10")
             @RequestParam(name = "limit", defaultValue = "10") int limit,
-            @Parameter(description = "Sắp xếp theo trường nào (createdAt, title, status)", example = "createdAt")
+            @Parameter(description = "Sáº¯p xáº¿p theo trÆ°á»ng nÃ o (createdAt, title, status)", example = "createdAt")
             @RequestParam(name = "sortBy", required = false) String sortBy,
-            @Parameter(description = "Thứ tự sắp xếp: asc hoặc desc", example = "desc")
+            @Parameter(description = "Thá»© tá»± sáº¯p xáº¿p: asc hoáº·c desc", example = "desc")
             @RequestParam(name = "sortOrder", required = false) String sortOrder,
-            @Parameter(description = "Lọc theo thư mục", example = "f1")
+            @Parameter(description = "Lá»c theo thÆ° má»¥c", example = "f1")
             @RequestParam(name = "folderId", required = false) String folderId,
             Authentication authentication) {
         String currentUserId = authentication != null ? authentication.getName() : "u1";
@@ -67,11 +68,11 @@ public class DocumentController {
 
     @GetMapping("/{id}")
     @Operation(
-        summary = "Lấy chi tiết tài liệu",
-        description = "Trả về chi tiết một tài liệu theo ID. Mã tài liệu mẫu: **d1**, **d2**"
+        summary = "Láº¥y chi tiáº¿t tÃ i liá»‡u",
+        description = "Tráº£ vá» chi tiáº¿t má»™t tÃ i liá»‡u theo ID. MÃ£ tÃ i liá»‡u máº«u: **d1**, **d2**"
     )
     public ResponseEntity<DocumentDto> getDocumentById(
-            @Parameter(description = "ID tài liệu", example = "d1")
+            @Parameter(description = "ID tÃ i liá»‡u", example = "d1")
             @PathVariable("id") String id, Authentication authentication) {
         String currentUserId = authentication != null ? authentication.getName() : "u1";
         boolean isAdmin = authentication != null && authentication.getAuthorities().stream()
@@ -82,11 +83,11 @@ public class DocumentController {
 
     @GetMapping("/{id}/download")
     @Operation(
-        summary = "Tải file gốc của tài liệu",
-        description = "Trả về nội dung file đã upload (nếu có) kèm Content-Disposition attachment"
+        summary = "Táº£i file gá»‘c cá»§a tÃ i liá»‡u",
+        description = "Tráº£ vá» ná»™i dung file Ä‘Ã£ upload (náº¿u cÃ³) kÃ¨m Content-Disposition attachment"
     )
     public ResponseEntity<byte[]> downloadDocument(
-            @Parameter(description = "ID tài liệu", example = "d1")
+            @Parameter(description = "ID tÃ i liá»‡u", example = "d1")
             @PathVariable("id") String id, Authentication authentication) {
         String currentUserId = authentication != null ? authentication.getName() : "u1";
         boolean isAdmin = authentication != null && authentication.getAuthorities().stream()
@@ -113,23 +114,24 @@ public class DocumentController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'USER')")
     @Operation(
-        summary = "Tạo tài liệu mới",
-        description = "Tạo một tài liệu mới ở trạng thái DRAFT. Tự động tạo phiên bản v1 và gán quyền OWNER cho người tạo.",
+        summary = "Táº¡o tÃ i liá»‡u má»›i",
+        description = "Táº¡o má»™t tÃ i liá»‡u má»›i á»Ÿ tráº¡ng thÃ¡i DRAFT. Tá»± Ä‘á»™ng táº¡o phiÃªn báº£n v1 vÃ  gÃ¡n quyá»n OWNER cho ngÆ°á»i táº¡o.",
         requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
             content = @Content(
                 mediaType = "application/json",
                 examples = {
                     @ExampleObject(
-                        name = "📊 Báo Cáo Tài Chính",
-                        value = "{\"title\":\"Báo Cáo Tài Chính Q4 2026\",\"type\":\"Financial Report\",\"folderId\":\"f1\",\"content\":\"{\\\"total\\\":120000,\\\"currency\\\":\\\"VND\\\"}\"}"
+                        name = "ðŸ“Š BÃ¡o CÃ¡o TÃ i ChÃ­nh",
+                        value = "{\"title\":\"BÃ¡o CÃ¡o TÃ i ChÃ­nh Q4 2026\",\"type\":\"Financial Report\",\"folderId\":\"f1\",\"content\":\"{\\\"total\\\":120000,\\\"currency\\\":\\\"VND\\\"}\"}"
                     ),
                     @ExampleObject(
-                        name = "📋 Hợp Đồng Lao Động",
-                        value = "{\"title\":\"Hợp Đồng Lao Động - Nguyen Van B\",\"type\":\"Contract\",\"folderId\":\"f2\",\"content\":\"{\\\"employee\\\":\\\"Nguyen Van B\\\",\\\"startDate\\\":\\\"2026-08-01\\\"}\"}"
+                        name = "ðŸ“‹ Há»£p Äá»“ng Lao Äá»™ng",
+                        value = "{\"title\":\"Há»£p Äá»“ng Lao Äá»™ng - Nguyen Van B\",\"type\":\"Contract\",\"folderId\":\"f2\",\"content\":\"{\\\"employee\\\":\\\"Nguyen Van B\\\",\\\"startDate\\\":\\\"2026-08-01\\\"}\"}"
                     ),
                     @ExampleObject(
-                        name = "📐 Kiến Trúc Hệ Thống",
+                        name = "ðŸ“ Kiáº¿n TrÃºc Há»‡ Thá»‘ng",
                         value = "{\"title\":\"System Architecture Overview v2\",\"type\":\"Architecture Specification\",\"folderId\":\"f1\",\"content\":\"{\\\"version\\\":\\\"2.0\\\",\\\"architect\\\":\\\"Hexagonal Architecture\\\"}\"}"
                     )
                 }
@@ -146,22 +148,23 @@ public class DocumentController {
     }
 
     @PatchMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'USER')")
     @Operation(
-        summary = "Cập nhật tài liệu",
-        description = "Cập nhật tiêu đề, nội dung hoặc folder của tài liệu. Chỉ cập nhật các field được truyền vào.",
+        summary = "Cáº­p nháº­t tÃ i liá»‡u",
+        description = "Cáº­p nháº­t tiÃªu Ä‘á», ná»™i dung hoáº·c folder cá»§a tÃ i liá»‡u. Chá»‰ cáº­p nháº­t cÃ¡c field Ä‘Æ°á»£c truyá»n vÃ o.",
         requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
             content = @Content(
                 mediaType = "application/json",
                 examples = {
-                    @ExampleObject(name = "📝 Cập Nhật Tiêu Đề", value = "{\"title\":\"Báo Cáo Tài Chính Q4 2026 - Cập Nhật\"}"),
-                    @ExampleObject(name = "📁 Chuyển Folder", value = "{\"folderId\":\"f2\"}"),
-                    @ExampleObject(name = "📄 Cập Nhật Nội Dung", value = "{\"content\":\"{\\\"total\\\":150000,\\\"status\\\":\\\"revised\\\"}\"}}")
+                    @ExampleObject(name = "ðŸ“ Cáº­p Nháº­t TiÃªu Äá»", value = "{\"title\":\"BÃ¡o CÃ¡o TÃ i ChÃ­nh Q4 2026 - Cáº­p Nháº­t\"}"),
+                    @ExampleObject(name = "ðŸ“ Chuyá»ƒn Folder", value = "{\"folderId\":\"f2\"}"),
+                    @ExampleObject(name = "ðŸ“„ Cáº­p Nháº­t Ná»™i Dung", value = "{\"content\":\"{\\\"total\\\":150000,\\\"status\\\":\\\"revised\\\"}\"}}")
                 }
             )
         )
     )
     public ResponseEntity<DocumentDto> updateDocument(
-            @Parameter(description = "ID tài liệu cần cập nhật", example = "d1")
+            @Parameter(description = "ID tÃ i liá»‡u cáº§n cáº­p nháº­t", example = "d1")
             @PathVariable("id") String id,
             @RequestBody UpdateDocumentRequest request,
             Authentication authentication) {
@@ -173,12 +176,13 @@ public class DocumentController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'USER')")
     @Operation(
-        summary = "Xóa tài liệu (Soft Delete)",
-        description = "Xóa mềm tài liệu - gán deletedAt timestamp, dữ liệu vẫn còn trong DB. Mã tài liệu mẫu: **d2**"
+        summary = "XÃ³a tÃ i liá»‡u (Soft Delete)",
+        description = "XÃ³a má»m tÃ i liá»‡u - gÃ¡n deletedAt timestamp, dá»¯ liá»‡u váº«n cÃ²n trong DB. MÃ£ tÃ i liá»‡u máº«u: **d2**"
     )
     public ResponseEntity<Void> deleteDocument(
-            @Parameter(description = "ID tài liệu cần xóa", example = "d2")
+            @Parameter(description = "ID tÃ i liá»‡u cáº§n xÃ³a", example = "d2")
             @PathVariable("id") String id, Authentication authentication) {
         String currentUserId = authentication != null ? authentication.getName() : "u1";
         boolean isAdmin = authentication != null && authentication.getAuthorities().stream()

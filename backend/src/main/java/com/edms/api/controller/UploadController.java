@@ -16,6 +16,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -32,7 +33,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/upload")
-@Tag(name = "📤 Upload", description = "Upload tài liệu lên hệ thống qua Presigned URL")
+@Tag(name = "ðŸ“¤ Upload", description = "Upload tÃ i liá»‡u lÃªn há»‡ thá»‘ng qua Presigned URL")
 @SecurityRequirement(name = "bearerAuth")
 public class UploadController {
 
@@ -45,17 +46,18 @@ public class UploadController {
     }
 
     @PostMapping("/url")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'USER')")
     @Operation(
-        summary = "Tạo Presigned Upload URL",
-        description = "Sinh ra một đường dẫn upload tạm thời (Presigned URL) để client upload file trực tiếp lên storage.\n\n" +
-            "Trong môi trường **local**, trả về mock URL. Trong môi trường **AWS**, trả về S3 presigned URL thực sự.",
+        summary = "Táº¡o Presigned Upload URL",
+        description = "Sinh ra má»™t Ä‘Æ°á»ng dáº«n upload táº¡m thá»i (Presigned URL) Ä‘á»ƒ client upload file trá»±c tiáº¿p lÃªn storage.\n\n" +
+            "Trong mÃ´i trÆ°á»ng **local**, tráº£ vá» mock URL. Trong mÃ´i trÆ°á»ng **AWS**, tráº£ vá» S3 presigned URL thá»±c sá»±.",
         requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
             content = @Content(
                 mediaType = "application/json",
                 examples = {
-                    @ExampleObject(name = "📄 Upload PDF", value = "{\"fileName\":\"contract-2026.pdf\",\"fileType\":\"application/pdf\"}"),
-                    @ExampleObject(name = "📊 Upload Excel", value = "{\"fileName\":\"budget-q4.xlsx\",\"fileType\":\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\"}"),
-                    @ExampleObject(name = "🖼️ Upload PNG", value = "{\"fileName\":\"system-diagram.png\",\"fileType\":\"image/png\"}")
+                    @ExampleObject(name = "ðŸ“„ Upload PDF", value = "{\"fileName\":\"contract-2026.pdf\",\"fileType\":\"application/pdf\"}"),
+                    @ExampleObject(name = "ðŸ“Š Upload Excel", value = "{\"fileName\":\"budget-q4.xlsx\",\"fileType\":\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\"}"),
+                    @ExampleObject(name = "ðŸ–¼ï¸ Upload PNG", value = "{\"fileName\":\"system-diagram.png\",\"fileType\":\"image/png\"}")
                 }
             )
         )
@@ -76,13 +78,13 @@ public class UploadController {
     @PutMapping("/mock-put/{fileId}")
     @Operation(
         summary = "Upload file (mock S3 PUT)",
-        description = "Nhận raw bytes của file từ client và ghi vào local storage (uploads/). " +
-            "Đây là endpoint mà presigned URL (trong môi trường local) trỏ tới, thay cho S3 PUT thật ở Phase 2."
+        description = "Nháº­n raw bytes cá»§a file tá»« client vÃ  ghi vÃ o local storage (uploads/). " +
+            "ÄÃ¢y lÃ  endpoint mÃ  presigned URL (trong mÃ´i trÆ°á»ng local) trá» tá»›i, thay cho S3 PUT tháº­t á»Ÿ Phase 2."
     )
     public ResponseEntity<Void> mockPutFile(
-            @Parameter(description = "ID file tạm thời do /upload/url sinh ra", example = "uuid")
+            @Parameter(description = "ID file táº¡m thá»i do /upload/url sinh ra", example = "uuid")
             @PathVariable("fileId") String fileId,
-            @Parameter(description = "Tên file gốc (chỉ lấy basename để tránh path traversal)")
+            @Parameter(description = "TÃªn file gá»‘c (chá»‰ láº¥y basename Ä‘á»ƒ trÃ¡nh path traversal)")
             @RequestParam(name = "fileName", required = false) String fileName,
             @RequestHeader(value = "Content-Type", required = false) String contentType,
             @RequestBody byte[] body) {
@@ -95,15 +97,16 @@ public class UploadController {
     }
 
     @PostMapping("/confirm")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'USER')")
     @Operation(
-        summary = "Xác nhận upload hoàn tất & tạo Document",
-        description = "Sau khi upload file thành công lên storage, gọi API này để tạo bản ghi Document trong hệ thống.",
+        summary = "XÃ¡c nháº­n upload hoÃ n táº¥t & táº¡o Document",
+        description = "Sau khi upload file thÃ nh cÃ´ng lÃªn storage, gá»i API nÃ y Ä‘á»ƒ táº¡o báº£n ghi Document trong há»‡ thá»‘ng.",
         requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
             content = @Content(
                 mediaType = "application/json",
                 examples = {
-                    @ExampleObject(name = "✅ Confirm PDF Upload", value = "{\"fileId\":\"abc123-uuid\",\"fileName\":\"contract-2026.pdf\",\"fileType\":\"application/pdf\"}"),
-                    @ExampleObject(name = "✅ Confirm Excel Upload", value = "{\"fileId\":\"xyz789-uuid\",\"fileName\":\"budget-q4.xlsx\",\"fileType\":\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\"}")
+                    @ExampleObject(name = "âœ… Confirm PDF Upload", value = "{\"fileId\":\"abc123-uuid\",\"fileName\":\"contract-2026.pdf\",\"fileType\":\"application/pdf\"}"),
+                    @ExampleObject(name = "âœ… Confirm Excel Upload", value = "{\"fileId\":\"xyz789-uuid\",\"fileName\":\"budget-q4.xlsx\",\"fileType\":\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\"}")
                 }
             )
         )

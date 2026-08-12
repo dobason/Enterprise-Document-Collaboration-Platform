@@ -1,4 +1,4 @@
-package com.edms.api.controller;
+﻿package com.edms.api.controller;
 
 import com.edms.api.dto.ApprovalActionResponse;
 import com.edms.api.dto.ApprovalSubmitResponse;
@@ -38,7 +38,7 @@ class ApprovalControllerTest {
     private ApprovalApplicationService approvalService;
 
     @Test
-    @WithMockUser(username = "u1", roles = "OWNER")
+    @WithMockUser(username = "u1", roles = "USER")
     @DisplayName("POST /approval/submit - Success")
     void submitForApproval_Success() throws Exception {
         ApprovalSubmitResponse response = ApprovalSubmitResponse.builder()

@@ -11,19 +11,12 @@ import java.time.Instant;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class DocumentDto {
+public class MyDocumentDto {
     private String id;
     private String title;
-    private String type;
     private String status;
-    private String ownerId;
-    private String ownerName;
     private String folderId;
-    private String content;
-    private String currentVersionId;
-    private String fileName;
-    private String fileType;
-    private String s3Key;
+    private String role;
     private Instant createdAt;
     private Instant updatedAt;
 }

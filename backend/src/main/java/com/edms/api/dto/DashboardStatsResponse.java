@@ -13,6 +13,8 @@ import java.util.List;
 @AllArgsConstructor
 public class DashboardStatsResponse {
     private long totalDocuments;
+    private long totalUsers;
+    private long totalFolders;
     private long pendingApprovals;
     private long approvedThisMonth;
     private long totalDepartments;

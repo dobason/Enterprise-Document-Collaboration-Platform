@@ -45,7 +45,7 @@ function cognitoLogin(email, password) {
           id: payload.sub,
           email: payload.email || email,
           name: payload.name || payload.email || email,
-          role: groups.includes("ADMIN") ? "ADMIN" : "VIEWER",
+          role: groups.includes("ADMIN") ? "ADMIN" : groups.includes("MANAGER") ? "MANAGER" : "USER",
           department: groups[0] || null,
         };
 

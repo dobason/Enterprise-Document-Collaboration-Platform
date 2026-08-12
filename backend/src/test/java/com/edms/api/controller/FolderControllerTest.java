@@ -1,4 +1,4 @@
-package com.edms.api.controller;
+﻿package com.edms.api.controller;
 
 import com.edms.api.dto.CreateFolderRequest;
 import com.edms.api.dto.FolderDto;
@@ -44,7 +44,7 @@ class FolderControllerTest {
     private FolderApplicationService folderService;
 
     @Test
-    @WithMockUser(username = "u1", roles = "OWNER")
+    @WithMockUser(username = "u1", roles = "USER")
     @DisplayName("GET /folders - Success")
     void getAllFolders_Success() throws Exception {
         FolderDto folder = FolderDto.builder()
@@ -64,7 +64,7 @@ class FolderControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "u1", roles = "OWNER")
+    @WithMockUser(username = "u1", roles = "USER")
     @DisplayName("GET /folders/{id} - Not Found")
     void getFolderById_NotFound() throws Exception {
         when(folderService.getFolderById("non-existent"))
@@ -76,7 +76,7 @@ class FolderControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "u1", roles = "OWNER")
+    @WithMockUser(username = "u1", roles = "USER")
     @DisplayName("POST /folders - Success")
     void createFolder_Success() throws Exception {
         CreateFolderRequest request = new CreateFolderRequest("New Folder", "Engineering", "u1");

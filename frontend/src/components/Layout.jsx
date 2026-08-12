@@ -4,11 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard,
   FileText,
-  Search,
-  Folder,
   LogOut,
   Menu,
-  X,
   ChevronDown,
   Shield
 } from 'lucide-react';
@@ -16,8 +13,6 @@ import {
 const baseNavItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/documents', label: 'Documents', icon: FileText },
-  { to: '/search', label: 'Search', icon: Search },
-  { to: '/folders', label: 'Folders', icon: Folder },
 ];
 
 export default function Layout() {
@@ -41,14 +36,12 @@ export default function Layout() {
     : '??';
 
   const roleBadgeColor = {
-    OWNER: 'bg-purple-100 text-purple-700 ring-1 ring-purple-600/20',
-    EDITOR: 'bg-blue-100 text-blue-700 ring-1 ring-blue-600/20',
-    VIEWER: 'bg-slate-100 text-slate-700 ring-1 ring-slate-600/20',
+    USER: 'bg-blue-100 text-blue-700 ring-1 ring-blue-600/20',
     MANAGER: 'bg-amber-100 text-amber-700 ring-1 ring-amber-600/20',
     ADMIN: 'bg-red-100 text-red-700 ring-1 ring-red-600/20',
   };
 
-  const roleColor = roleBadgeColor[user?.role] || roleBadgeColor.VIEWER;
+  const roleColor = roleBadgeColor[user?.role] || roleBadgeColor.USER;
 
   return (
     <div className="flex h-screen bg-slate-50">
@@ -65,17 +58,17 @@ export default function Layout() {
       <aside
         className={`
           fixed lg:static inset-y-0 left-0 z-30
-          w-[260px] bg-white border-r border-slate-200
-          flex flex-col transition-transform duration-200
+          sidebar
+          transition-transform duration-200
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
       >
         {/* Logo */}
-        <div className="flex items-center gap-3 h-16 px-6 border-b border-slate-100">
+        <div className="flex items-center gap-3 h-16 px-6 border-b border-slate-800">
           <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center">
             <FileText size={18} className="text-white" />
           </div>
-          <span className="font-bold text-lg text-slate-800">EDMS</span>
+          <span className="font-bold text-lg text-white">EDMS</span>
         </div>
 
         {/* Navigation */}
@@ -87,11 +80,7 @@ export default function Layout() {
               end={item.to === '/'}
               onClick={() => setSidebarOpen(false)}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-primary-50 text-primary-700'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
-                }`
+                `sidebar-link ${isActive ? 'sidebar-link-active' : ''}`
               }
             >
               <item.icon size={20} aria-hidden="true" />
@@ -100,9 +89,12 @@ export default function Layout() {
           ))}
         </nav>
 
-        {/* Sidebar footer */}
-        <div className="p-4 border-t border-slate-100">
-          <div className="flex items-center gap-3 px-3 py-2">
+        {/* Sidebar footer - interactive user menu */}
+        <div className="relative p-4 border-t border-slate-800">
+          <button
+            onClick={() => setUserMenuOpen(!userMenuOpen)}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-800 transition-colors"
+          >
             <div
               className="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-xs font-bold"
               role="img"
@@ -110,19 +102,41 @@ export default function Layout() {
             >
               {userInitials}
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-slate-700 truncate">{user?.name}</p>
+            <div className="flex-1 min-w-0 text-left">
+              <p className="text-sm font-medium text-slate-100 truncate">{user?.name}</p>
               <p className="text-xs text-slate-400 truncate">{user?.email}</p>
             </div>
-          </div>
+            <span className={`badge ${roleColor}`}>{user?.role}</span>
+            <ChevronDown size={14} className="text-slate-400 shrink-0" aria-hidden="true" />
+          </button>
+
+          {userMenuOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setUserMenuOpen(false)} />
+              <div className="absolute bottom-full left-3 mb-1 w-56 bg-white rounded-lg shadow-xl border border-slate-200 py-1 z-20">
+                <div className="px-4 py-3 border-b border-slate-100">
+                  <p className="text-sm font-medium text-slate-800">{user?.name}</p>
+                  <p className="text-xs text-slate-400">{user?.email}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{user?.department}</p>
+                  <span className={`badge mt-1 ${roleColor}`}>{user?.role}</span>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  <LogOut size={16} />
+                  Logout
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </aside>
 
       {/* Main area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Topbar */}
+        {/* Topbar - chỉ còn nút mở menu mobile */}
         <header className="h-16 bg-white border-b border-slate-200 flex items-center gap-4 px-4 lg:px-6 shrink-0">
-          {/* Mobile menu toggle */}
           <button
             onClick={() => setSidebarOpen(true)}
             className="lg:hidden p-2 -ml-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg"
@@ -130,52 +144,7 @@ export default function Layout() {
           >
             <Menu size={20} />
           </button>
-
           <div className="flex-1" />
-
-          {/* User menu */}
-          <div className="relative">
-            <button
-              onClick={() => setUserMenuOpen(!userMenuOpen)}
-              className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors"
-            >
-              <div
-                className="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-xs font-bold"
-                role="img"
-                aria-label={user?.name || 'User avatar'}
-              >
-                {userInitials}
-              </div>
-              <div className="hidden sm:block text-left">
-                <p className="text-sm font-medium text-slate-700 leading-tight">{user?.name}</p>
-                <p className="text-xs text-slate-400">{user?.department}</p>
-              </div>
-              <span className={`badge hidden sm:inline-flex ${roleColor}`}>
-                {user?.role}
-              </span>
-              <ChevronDown size={14} className="text-slate-400 hidden sm:block" aria-hidden="true" />
-            </button>
-
-            {userMenuOpen && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setUserMenuOpen(false)} />
-                <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-20">
-                  <div className="px-4 py-3 border-b border-slate-100">
-                    <p className="text-sm font-medium text-slate-800">{user?.name}</p>
-                    <p className="text-xs text-slate-400">{user?.email}</p>
-                    <span className={`badge mt-1 ${roleColor}`}>{user?.role}</span>
-                  </div>
-                  <button
-                    onClick={handleLogout}
-                    className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                  >
-                    <LogOut size={16} />
-                    Logout
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
         </header>
 
         {/* Page content */}

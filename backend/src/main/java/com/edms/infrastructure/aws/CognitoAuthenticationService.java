@@ -117,6 +117,7 @@ public class CognitoAuthenticationService implements AuthenticationService {
                 .name(user.getName())
                 .role(user.getRole().name())
                 .department(user.getDepartment())
+                .departmentId(user.getDepartmentId())
                 .avatar(user.getAvatar())
                 .build();
     }

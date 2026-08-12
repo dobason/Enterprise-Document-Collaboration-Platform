@@ -1,4 +1,4 @@
-package com.edms.api.controller;
+﻿package com.edms.api.controller;
 
 import com.edms.api.dto.AuthResponse;
 import com.edms.api.dto.LoginRequest;
@@ -45,7 +45,7 @@ class AuthControllerTest {
                 .id("u1")
                 .email("owner@edms.vn")
                 .name("Nguyen Van A")
-                .role("OWNER")
+                .role("USER")
                 .department("Engineering")
                 .build();
 
@@ -93,14 +93,14 @@ class AuthControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "u1", roles = "OWNER")
+    @WithMockUser(username = "u1", roles = "USER")
     @DisplayName("GET /auth/me - Success")
     void getCurrentUser_Success() throws Exception {
         UserDto userDto = UserDto.builder()
                 .id("u1")
                 .email("owner@edms.vn")
                 .name("Nguyen Van A")
-                .role("OWNER")
+                .role("USER")
                 .department("Engineering")
                 .build();
 

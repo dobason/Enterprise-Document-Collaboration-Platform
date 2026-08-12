@@ -1,18 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { getDashboardStats } from '../api/dashboard.api';
-import StatsCard from '../components/StatsCard';
+import { useNavigate } from 'react-router-dom';
+import { getMyDocuments } from '../api/dashboard.api';
 import { useToast } from '../context/ToastContext';
 import {
   FileText,
   Clock,
   CheckCircle2,
-  Building2,
-  BarChart3,
+  XCircle,
+  Folder,
 } from 'lucide-react';
 
 export default function DashboardPage() {
   const { addToast } = useToast();
-  const [stats, setStats] = useState(null);
+  const navigate = useNavigate();
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -20,8 +21,8 @@ export default function DashboardPage() {
 
     async function load() {
       try {
-        const data = await getDashboardStats();
-        if (!cancelled) setStats(data);
+        const result = await getMyDocuments();
+        if (!cancelled) setData(result);
       } catch (err) {
         if (!cancelled) addToast('Failed to load dashboard', 'error');
       } finally {
@@ -33,6 +34,25 @@ export default function DashboardPage() {
     return () => { cancelled = true; };
   }, [addToast]);
 
+  const statusBadge = (status) => {
+    const map = {
+      APPROVED: 'badge badge-approved',
+      PENDING: 'badge badge-pending',
+      REJECTED: 'badge badge-rejected',
+      DRAFT: 'badge badge-draft',
+    };
+    return map[status] || 'badge';
+  };
+
+  const roleBadge = (role) => {
+    const map = {
+      OWNER: 'bg-purple-100 text-purple-700 ring-1 ring-purple-600/20',
+      EDITOR: 'bg-blue-100 text-blue-700 ring-1 ring-blue-600/20',
+      VIEWER: 'bg-slate-100 text-slate-700 ring-1 ring-slate-600/20',
+    };
+    return map[role] || 'badge';
+  };
+
   if (loading) {
     return (
       <div className="loading-center">
@@ -42,124 +62,96 @@ export default function DashboardPage() {
     );
   }
 
-  const maxDeptCount = stats?.docsByDepartment?.length > 0
-    ? stats.docsByDepartment.reduce((max, d) => (d.count > max ? d.count : max), 0)
-    : 1;
+  const stats = data || { total: 0, approved: 0, pending: 0, rejected: 0, items: [] };
+
+  const statCards = [
+    { label: 'Total Documents', value: stats.total, icon: FileText, color: 'bg-primary-50 text-primary-600' },
+    { label: 'Approved', value: stats.approved, icon: CheckCircle2, color: 'bg-green-50 text-green-600' },
+    { label: 'Pending', value: stats.pending, icon: Clock, color: 'bg-amber-50 text-amber-600' },
+    { label: 'Rejected', value: stats.rejected, icon: XCircle, color: 'bg-red-50 text-red-600' },
+  ];
 
   return (
     <div className="max-w-6xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>
-        <p className="text-sm text-slate-500 mt-1">Overview of your document management system</p>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">My Dashboard</h1>
+          <p className="page-subtitle">Documents you uploaded or have access to</p>
+        </div>
       </div>
 
-      {/* Stats cards */}
+      {/* Stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatsCard
-          icon={FileText}
-          label="Total Documents"
-          value={stats?.totalDocuments || 0}
-          color="primary"
-        />
-        <StatsCard
-          icon={Clock}
-          label="Pending Approvals"
-          value={stats?.pendingApprovals || 0}
-          color="warning"
-        />
-        <StatsCard
-          icon={CheckCircle2}
-          label="Approved This Month"
-          value={stats?.approvedThisMonth || 0}
-          color="success"
-        />
-        <StatsCard
-          icon={Building2}
-          label="Departments"
-          value={stats?.totalDepartments || 0}
-          color="info"
-        />
+        {statCards.map((card) => (
+          <div key={card.label} className="card p-5">
+            <div className="flex items-center gap-4">
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${card.color}`}>
+                <card.icon size={24} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-2xl font-bold text-slate-800">{card.value}</p>
+                <p className="text-sm text-slate-500 mt-0.5">{card.label}</p>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Documents by Department chart */}
-        <div className="card p-6">
-          <h3 className="text-sm font-semibold text-slate-700 mb-4 flex items-center gap-2">
-            <BarChart3 size={16} />
-            Documents by Department
+      {/* Documents list */}
+      <div className="card overflow-hidden">
+        <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/50">
+          <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+            <FileText size={16} className="text-primary-600" />
+            My Documents
           </h3>
-
-          {stats?.docsByDepartment?.length > 0 ? (
-            <div className="space-y-3">
-              {stats.docsByDepartment.map((dept) => (
-                <div key={dept.name}>
-                  <div className="flex items-center justify-between text-sm mb-1">
-                    <span className="text-slate-600">{dept.name}</span>
-                    <span className="text-slate-800 font-medium">{dept.count}</span>
-                  </div>
-                  <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                    <div
-                      className="bg-primary-500 h-full rounded-full transition-[width] duration-500"
-                      style={{ width: `${(dept.count / maxDeptCount) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-slate-400">No data available</p>
-          )}
         </div>
 
-        {/* Documents by Status */}
-        <div className="card p-6">
-          <h3 className="text-sm font-semibold text-slate-700 mb-4 flex items-center gap-2">
-            <FileText size={16} />
-            Documents by Status
-          </h3>
-
-          {stats?.docsByStatus?.length > 0 ? (
-            <div className="space-y-3">
-              {stats.docsByStatus.map((item) => {
-                const total = stats.totalDocuments || 1;
-                const pct = Math.round((item.count / total) * 100);
-                const barColor =
-                  item.status === 'APPROVED' ? 'bg-green-500' :
-                  item.status === 'PENDING' ? 'bg-cyan-500' :
-                  item.status === 'REJECTED' ? 'bg-red-500' :
-                  'bg-amber-500';
-
-                return (
-                  <div key={item.status}>
-                    <div className="flex items-center justify-between text-sm mb-1">
-                      <div className="flex items-center gap-2">
-                        <span className={`badge ${
-                          item.status === 'APPROVED' ? 'badge-approved' :
-                          item.status === 'PENDING' ? 'badge-pending' :
-                          item.status === 'REJECTED' ? 'badge-rejected' :
-                          'badge-draft'
-                        }`}>
-                          {item.status}
-                        </span>
+        {stats.items.length === 0 ? (
+          <div className="p-12 text-center">
+            <Folder size={40} className="text-slate-300 mx-auto mb-2" />
+            <p className="text-slate-500 text-sm">No documents yet. Upload a document or get shared access.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="table">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50/50">
+                  <th className="table-head">Name</th>
+                  <th className="table-head">Status</th>
+                  <th className="table-head">Your Role</th>
+                  <th className="table-head hidden md:table-cell">Updated</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {stats.items.map((doc) => (
+                  <tr
+                    key={doc.id}
+                    onClick={() => navigate(`/documents/${doc.id}`)}
+                    className="hover:bg-slate-50 transition-colors cursor-pointer"
+                  >
+                    <td className="px-4 py-3.5">
+                      <div className="flex items-center gap-3">
+                        <FileText size={18} className="text-slate-400 shrink-0" />
+                        <span className="text-sm font-medium text-slate-700 truncate max-w-[250px]">{doc.title}</span>
                       </div>
-                      <span className="text-slate-800 font-medium">
-                        {item.count} ({pct}%)
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <span className={statusBadge(doc.status)}>{doc.status}</span>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      {doc.role && <span className={`badge ${roleBadge(doc.role)}`}>{doc.role}</span>}
+                    </td>
+                    <td className="px-4 py-3.5 hidden md:table-cell">
+                      <span className="text-sm text-slate-500">
+                        {doc.updatedAt ? new Date(doc.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}
                       </span>
-                    </div>
-                    <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                      <div
-                        className={`${barColor} h-full rounded-full transition-[width] duration-500`}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="text-sm text-slate-400">No data available</p>
-          )}
-        </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -6,11 +6,11 @@ import {
   Users,
   Building2,
   FolderOpen,
-  ArrowLeft
+  LogOut,
 } from 'lucide-react';
 
 export default function AdminLayout() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   if (user?.role !== 'ADMIN') {
     return <Navigate to="/" replace />;
@@ -23,11 +23,16 @@ export default function AdminLayout() {
     { name: 'Folders', path: '/admin/folders', icon: FolderOpen },
   ];
 
+  const handleLogout = () => {
+    logout();
+    window.location.href = '/login';
+  };
+
   return (
     <div className="flex h-screen bg-slate-50">
       {/* Admin Sidebar */}
-      <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col shrink-0">
-        <div className="h-16 flex items-center px-6 border-b border-slate-800">
+      <aside className="sidebar">
+        <div className="sidebar-header">
           <h1 className="text-xl font-bold text-white flex items-center gap-2">
             <span className="text-primary-500">EDMS</span> Admin
           </h1>
@@ -40,11 +45,7 @@ export default function AdminLayout() {
                 <NavLink
                   to={item.path}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                      isActive
-                        ? 'bg-primary-600 text-white'
-                        : 'hover:bg-slate-800 hover:text-white'
-                    }`
+                    `sidebar-link ${isActive ? 'sidebar-link-active' : ''}`
                   }
                 >
                   <item.icon size={18} />
@@ -56,13 +57,13 @@ export default function AdminLayout() {
         </nav>
 
         <div className="p-4 border-t border-slate-800">
-          <NavLink
-            to="/"
-            className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors"
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 w-full text-sm text-slate-400 hover:text-white transition-colors"
           >
-            <ArrowLeft size={16} />
-            Back to User Portal
-          </NavLink>
+            <LogOut size={16} />
+            Logout
+          </button>
         </div>
       </aside>
 

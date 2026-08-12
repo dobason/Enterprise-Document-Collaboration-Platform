@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
@@ -46,6 +47,7 @@ public class DepartmentController {
 
     @PostMapping
     @Operation(summary = "Tạo phòng ban mới (Admin)")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<DepartmentDto> createDepartment(@Valid @RequestBody CreateDepartmentRequest request) {
         if (departmentRepository.findByCode(request.getCode()).isPresent()) {
             throw new IllegalArgumentException("Department code already exists");
@@ -64,6 +66,7 @@ public class DepartmentController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Cập nhật phòng ban (Admin)")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<DepartmentDto> updateDepartment(
             @PathVariable("id") String id,
             @Valid @RequestBody CreateDepartmentRequest request) {
@@ -87,6 +90,7 @@ public class DepartmentController {
                 .name(u.getName())
                 .role(u.getRole().name())
                 .department(u.getDepartment())
+                .departmentId(u.getDepartmentId())
                 .avatar(u.getAvatar())
                 .build()).collect(Collectors.toList());
         return ResponseEntity.ok(UserListResponse.builder().items(dtos).build());

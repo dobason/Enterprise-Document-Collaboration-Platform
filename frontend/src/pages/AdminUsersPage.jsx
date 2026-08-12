@@ -5,6 +5,12 @@ import { listUsers, updateUserRole, createUser, updateUserDepartment } from '../
 import { listDepartments } from '../api/departments.api';
 import { Users, Plus, X, Edit2 } from 'lucide-react';
 
+const roleBadge = {
+  ADMIN: 'bg-red-100 text-red-700 ring-1 ring-red-600/20',
+  MANAGER: 'bg-amber-100 text-amber-700 ring-1 ring-amber-600/20',
+  USER: 'bg-blue-100 text-blue-700 ring-1 ring-blue-600/20',
+};
+
 export default function AdminUsersPage() {
   const { user } = useAuth();
   const { addToast } = useToast();
@@ -15,11 +21,31 @@ export default function AdminUsersPage() {
 
   // Create modal state
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({ name: '', email: '', role: 'VIEWER', departmentId: '' });
+  const [formData, setFormData] = useState({ name: '', email: '', role: 'USER', departmentId: '' });
 
-  // Edit modal state - pre-populated with the selected user's data
+  // Edit modal state
   const [showEditModal, setShowEditModal] = useState(false);
-  const [editFormData, setEditFormData] = useState({ userId: '', name: '', role: 'VIEWER', departmentId: '' });
+  const [editFormData, setEditFormData] = useState({ userId: '', name: '', role: 'USER', departmentId: '' });
+
+  // Departments đã có manager (loại trừ user đang edit)
+  const departmentsWithManager = () => {
+    const deptIds = users
+      .filter((u) => u.role === 'MANAGER' && u.id !== editFormData.userId)
+      .map((u) => u.departmentId)
+      .filter(Boolean);
+    return new Set(deptIds);
+  };
+
+  // Danh sách department được phép chọn theo role:
+  // - MANAGER: ẩn hẳn department đã có manager
+  // - USER/khác: hiện tất cả
+  const availableDepartments = (role) => {
+    if (role === 'MANAGER') {
+      const taken = departmentsWithManager();
+      return departments.filter((d) => !taken.has(d.id));
+    }
+    return departments;
+  };
 
   const loadData = async () => {
     try {
@@ -41,7 +67,6 @@ export default function AdminUsersPage() {
   }, []);
 
   const openEditModal = (u) => {
-    // Find the department ID matching the user's current department name
     const currentDept = departments.find(d => d.name === u.department);
     setEditFormData({
       userId: u.id,
@@ -52,14 +77,29 @@ export default function AdminUsersPage() {
     setShowEditModal(true);
   };
 
+  const validateManagerRule = (role, departmentId) => {
+    if (role === 'MANAGER') {
+      if (!departmentId) {
+        addToast('Manager must be assigned to a department', 'error');
+        return false;
+      }
+      if (departmentsWithManager().has(departmentId)) {
+        addToast('This department already has a manager', 'error');
+        return false;
+      }
+    }
+    return true;
+  };
+
   const handleCreateUser = async (e) => {
     e.preventDefault();
+    if (!validateManagerRule(formData.role, formData.departmentId)) return;
     setSaving(true);
     try {
       await createUser(formData);
       addToast('User created successfully. Default password is Password123!', 'success');
       setShowModal(false);
-      setFormData({ name: '', email: '', role: 'VIEWER', departmentId: '' });
+      setFormData({ name: '', email: '', role: 'USER', departmentId: '' });
       loadData();
     } catch (err) {
       addToast(err.message || 'Failed to create user', 'error');
@@ -70,14 +110,21 @@ export default function AdminUsersPage() {
 
   const handleEditUser = async (e) => {
     e.preventDefault();
+    if (!validateManagerRule(editFormData.role, editFormData.departmentId)) return;
     setSaving(true);
     try {
-      // Update role if changed
       const targetUser = users.find(u => u.id === editFormData.userId);
+
+      // Không cho hạ quyền ADMIN (admin duy nhất)
+      if (targetUser && targetUser.role === 'ADMIN' && editFormData.role !== 'ADMIN') {
+        addToast('The sole ADMIN account cannot be demoted', 'error');
+        setSaving(false);
+        return;
+      }
+
       if (targetUser && targetUser.role !== editFormData.role) {
         await updateUserRole(editFormData.userId, editFormData.role);
       }
-      // Update department
       await updateUserDepartment(editFormData.userId, editFormData.departmentId);
 
       addToast('User updated successfully', 'success');
@@ -90,14 +137,16 @@ export default function AdminUsersPage() {
     }
   };
 
+  const isEditingSelf = editFormData.userId === user?.id;
+
   return (
     <div className="max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+      <div className="page-header">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+          <h1 className="page-title flex items-center gap-2">
             <Users size={24} className="text-primary-600" /> User Management
           </h1>
-          <p className="text-sm text-slate-500">Manage system users and their roles</p>
+          <p className="page-subtitle">Manage system users and their roles</p>
         </div>
         <button onClick={() => setShowModal(true)} className="btn btn-primary">
           <Plus size={16} /> New User
@@ -133,7 +182,7 @@ export default function AdminUsersPage() {
                     <td className="px-6 py-4 text-sm text-slate-500">{u.email}</td>
                     <td className="px-6 py-4 text-sm text-slate-500">{u.department || <span className="text-slate-300 italic">No department</span>}</td>
                     <td className="px-6 py-4">
-                      <span className={`badge ${u.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600'}`}>
+                      <span className={`badge ${roleBadge[u.role] || roleBadge.USER}`}>
                         {u.role}
                       </span>
                     </td>
@@ -205,9 +254,10 @@ export default function AdminUsersPage() {
                   className="input"
                   disabled={saving}
                 >
-                  <option value="VIEWER">VIEWER</option>
-                  <option value="ADMIN">ADMIN</option>
+                  <option value="USER">USER</option>
+                  <option value="MANAGER">MANAGER</option>
                 </select>
+                <p className="text-xs text-slate-400 mt-1">ADMIN account is unique and managed by the system.</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Department</label>
@@ -218,7 +268,7 @@ export default function AdminUsersPage() {
                   disabled={saving}
                 >
                   <option value="">-- No Department --</option>
-                  {departments.map((dept) => (
+                  {availableDepartments(formData.role).map((dept) => (
                     <option key={dept.id} value={dept.id}>{dept.name} ({dept.code})</option>
                   ))}
                 </select>
@@ -261,11 +311,15 @@ export default function AdminUsersPage() {
                   value={editFormData.role}
                   onChange={(e) => setEditFormData({ ...editFormData, role: e.target.value })}
                   className="input"
-                  disabled={saving}
+                  disabled={saving || isEditingSelf}
                 >
-                  <option value="VIEWER">VIEWER</option>
-                  <option value="ADMIN">ADMIN</option>
+                  <option value="USER">USER</option>
+                  <option value="MANAGER">MANAGER</option>
+                  {isEditingSelf && <option value="ADMIN">ADMIN</option>}
                 </select>
+                {isEditingSelf && (
+                  <p className="text-xs text-slate-400 mt-1">You are the sole ADMIN account and cannot change your own role.</p>
+                )}
               </div>
 
               <div>
@@ -277,7 +331,7 @@ export default function AdminUsersPage() {
                   disabled={saving}
                 >
                   <option value="">-- No Department --</option>
-                  {departments.map((dept) => (
+                  {availableDepartments(editFormData.role).map((dept) => (
                     <option key={dept.id} value={dept.id}>{dept.name} ({dept.code})</option>
                   ))}
                 </select>

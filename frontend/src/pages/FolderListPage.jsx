@@ -50,10 +50,10 @@ export default function FolderListPage() {
 
   return (
     <div className="max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+      <div className="page-header">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Folders</h1>
-          <p className="text-sm text-slate-500">Browse all root directories</p>
+          <h1 className="page-title">Folders</h1>
+          <p className="page-subtitle">Browse all root directories</p>
         </div>
         <button
           onClick={() => setShowCreateModal(true)}

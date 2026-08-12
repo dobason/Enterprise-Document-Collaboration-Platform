@@ -94,8 +94,9 @@ export default function DocumentEditorPage() {
             const contentState = convertFromRaw(raw);
             const state = EditorState.createWithContent(contentState);
             setEditorState(state);
-            contentRef.current = document.content;
-            lastSavedContentRef.current = document.content;
+            const saved = JSON.stringify(convertToRaw(state.getCurrentContent()));
+            contentRef.current = saved;
+            lastSavedContentRef.current = saved;
           } else {
             throw new Error('Empty JSON blocks');
           }
@@ -103,13 +104,15 @@ export default function DocumentEditorPage() {
           // Fallback to HTML parser if JSON parse fails
           const blocksFromHTML = convertFromHTML(document.content || '');
           if (blocksFromHTML.contentBlocks && blocksFromHTML.contentBlocks.length > 0) {
-            const state = ContentState.createFromBlockArray(
+            const contentState = ContentState.createFromBlockArray(
               blocksFromHTML.contentBlocks,
               blocksFromHTML.entityMap
             );
-            setEditorState(EditorState.createWithContent(state));
-            contentRef.current = document.content;
-            lastSavedContentRef.current = document.content;
+            const state = EditorState.createWithContent(contentState);
+            setEditorState(state);
+            const saved = JSON.stringify(convertToRaw(state.getCurrentContent()));
+            contentRef.current = saved;
+            lastSavedContentRef.current = saved;
           } else {
             // Fallback to plain text stripping HTML completely
             const stripHtml = (html) => {
@@ -122,9 +125,11 @@ export default function DocumentEditorPage() {
             };
             const cleanText = stripHtml(document.content || '');
             const plainTextContent = ContentState.createFromText(cleanText);
-            setEditorState(EditorState.createWithContent(plainTextContent));
-            contentRef.current = cleanText;
-            lastSavedContentRef.current = cleanText;
+            const state = EditorState.createWithContent(plainTextContent);
+            setEditorState(state);
+            const saved = JSON.stringify(convertToRaw(state.getCurrentContent()));
+            contentRef.current = saved;
+            lastSavedContentRef.current = saved;
           }
         }
 
@@ -201,10 +206,11 @@ export default function DocumentEditorPage() {
   }, [fileUrl]);
 
   const handleDownload = useCallback(async () => {
-    if (!uploadedFile) return;
+    const targetId = uploadedFile?.id || doc?.id;
+    if (!targetId) return;
 
-    if (uploadedFile.name.endsWith('.docx') || uploadedFile.name.endsWith('.doc')) {
-      // Export current editor content as a text file to reflect the current edited version
+    // Nếu doc có file upload .docx/.doc -> export nội dung editor thành text
+    if (uploadedFile?.name?.endsWith('.docx') || uploadedFile?.name?.endsWith('.doc')) {
       const text = editorState.getCurrentContent().getPlainText('\n');
       const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
       const url = URL.createObjectURL(blob);
@@ -219,7 +225,7 @@ export default function DocumentEditorPage() {
     }
 
     try {
-      const res = await fetch(`${CONFIG.API_URL}/documents/${uploadedFile.id}/download`, {
+      const res = await fetch(`${CONFIG.API_URL}/documents/${targetId}/download`, {
         headers: { Authorization: `Bearer ${getToken()}` },
       });
       if (!res.ok) throw new Error(`Download failed: HTTP ${res.status}`);
@@ -227,7 +233,7 @@ export default function DocumentEditorPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = uploadedFile.name;
+      a.download = uploadedFile?.name || `${doc?.title || 'document'}.txt`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -235,7 +241,7 @@ export default function DocumentEditorPage() {
     } catch (err) {
       addToast('Download failed: ' + err.message, 'error');
     }
-  }, [uploadedFile, editorState, addToast]);
+  }, [uploadedFile, doc, editorState, addToast]);
 
   const getContentJSON = useCallback(() => {
     const contentState = contentRef.current
@@ -409,7 +415,7 @@ export default function DocumentEditorPage() {
             </span>
           )}
 
-          {user?.role === 'ADMIN' && doc.status === 'PENDING' && (
+          {(user?.role === 'ADMIN' || user?.role === 'MANAGER') && doc.status === 'PENDING' && (
             <>
               <button
                 onClick={async () => {
@@ -444,8 +450,18 @@ export default function DocumentEditorPage() {
             </>
           )}
 
-          {/* Save button */}
-          {!isViewer && !uploadedFile && (
+          {/* Download button - mọi loại doc */}
+          <button
+            onClick={handleDownload}
+            className="btn btn-secondary"
+            title="Download document"
+          >
+            <Download size={16} />
+            Download
+          </button>
+
+          {/* Save button - hiện khi user có quyền sửa (không phải viewer) */}
+          {!isViewer && (
             <button
               onClick={() => handleSave(false)}
               disabled={saving}
@@ -481,10 +497,6 @@ export default function DocumentEditorPage() {
                   <h3 className="text-lg font-semibold text-slate-800 truncate">{uploadedFile.name}</h3>
                   <p className="text-sm text-slate-400">{uploadedFile.type}</p>
                 </div>
-                <button onClick={handleDownload} className="btn btn-secondary shrink-0">
-                  <Download size={16} />
-                  Download
-                </button>
               </div>
 
               {fileUrl && previewKind === 'image' ? (

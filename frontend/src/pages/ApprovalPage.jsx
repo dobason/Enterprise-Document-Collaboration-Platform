@@ -124,8 +124,8 @@ export default function ApprovalPage() {
   const StatusIcon = STATUS_CONFIG[doc.status]?.icon || Clock;
   const isAdmin = user?.role === 'ADMIN';
   const canSubmit = false; // documents start as PENDING, no need to submit
-  const canApprove = (isAdmin || userRole === 'MANAGER' || userRole === 'OWNER') && doc.status === 'PENDING';
-  const canReject = (isAdmin || userRole === 'MANAGER' || userRole === 'OWNER') && doc.status === 'PENDING';
+  const canApprove = (isAdmin || userRole === 'MANAGER') && doc.status === 'PENDING';
+  const canReject = (isAdmin || userRole === 'MANAGER') && doc.status === 'PENDING';
 
   return (
     <div className="max-w-4xl mx-auto">

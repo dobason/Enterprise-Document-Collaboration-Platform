@@ -20,6 +20,7 @@ import com.edms.infrastructure.persistence.entity.PermissionEntity;
 import com.edms.infrastructure.persistence.repository.DocumentJpaRepository;
 import com.edms.infrastructure.persistence.repository.DocumentVersionJpaRepository;
 import com.edms.infrastructure.persistence.repository.PermissionJpaRepository;
+import com.edms.infrastructure.persistence.repository.UserJpaRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -41,19 +42,22 @@ public class DocumentApplicationService {
     private final AuditService auditService;
     private final EventPublisher eventPublisher;
     private final StorageService storageService;
+    private final UserJpaRepository userRepository;
 
     public DocumentApplicationService(DocumentJpaRepository documentRepository,
                                       DocumentVersionJpaRepository versionRepository,
                                       PermissionJpaRepository permissionRepository,
                                       AuditService auditService,
                                       EventPublisher eventPublisher,
-                                      StorageService storageService) {
+                                      StorageService storageService,
+                                      UserJpaRepository userRepository) {
         this.documentRepository = documentRepository;
         this.versionRepository = versionRepository;
         this.permissionRepository = permissionRepository;
         this.auditService = auditService;
         this.eventPublisher = eventPublisher;
         this.storageService = storageService;
+        this.userRepository = userRepository;
     }
 
     @Transactional(readOnly = true)
@@ -90,13 +94,23 @@ public class DocumentApplicationService {
         DocumentEntity entity = documentRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + id));
 
-        if (!isAdmin && !entity.getOwnerId().equals(currentUserId) && entity.getStatus() != DocumentStatus.APPROVED) {
+        if (!isAdmin && !hasAccess(entity, currentUserId)) {
             throw new ForbiddenException("You do not have permission to view this document");
         }
 
         auditService.log(id, AuditAction.VIEW, currentUserId, "Viewed document");
 
         return mapToDto(entity, currentUserId, isAdmin);
+    }
+
+    private boolean hasAccess(DocumentEntity entity, String currentUserId) {
+        return permissionRepository.findByDocumentIdAndUserId(entity.getId(), currentUserId).isPresent();
+    }
+
+    private boolean canEdit(DocumentEntity entity, String currentUserId) {
+        return permissionRepository.findByDocumentIdAndUserId(entity.getId(), currentUserId)
+                .map(p -> p.getRole() == PermissionRole.OWNER || p.getRole() == PermissionRole.EDITOR)
+                .orElse(false);
     }
 
     @Transactional
@@ -154,8 +168,8 @@ public class DocumentApplicationService {
         DocumentEntity doc = documentRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + id));
 
-        if (!isAdmin && !doc.getOwnerId().equals(currentUserId)) {
-            throw new ForbiddenException("Only admin or owner can update document");
+        if (!isAdmin && !canEdit(doc, currentUserId)) {
+            throw new ForbiddenException("Only admin or editor can update document");
         }
 
         if (request.getTitle() != null) {
@@ -178,8 +192,8 @@ public class DocumentApplicationService {
         DocumentEntity doc = documentRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + id));
 
-        if (!isAdmin && !doc.getOwnerId().equals(currentUserId)) {
-            throw new ForbiddenException("Only admin or owner can delete document");
+        if (!isAdmin && !canEdit(doc, currentUserId)) {
+            throw new ForbiddenException("Only admin or editor can delete document");
         }
 
         doc.setDeletedAt(Instant.now());
@@ -194,30 +208,63 @@ public class DocumentApplicationService {
         DocumentEntity entity = documentRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found: " + id));
 
-        if (!isAdmin && !entity.getOwnerId().equals(currentUserId) && entity.getStatus() != DocumentStatus.APPROVED) {
+        if (!isAdmin && !hasAccess(entity, currentUserId)) {
             throw new ForbiddenException("You do not have permission to download this document");
         }
 
         auditService.log(id, AuditAction.DOWNLOAD, currentUserId, "Downloaded document");
 
-        String key = entity.getS3Key() != null ? entity.getS3Key() : entity.getId();
-        byte[] content = storageService.downloadFile(key);
-        String fileName = entity.getFileName() != null ? entity.getFileName() : entity.getTitle();
-        return new FileDownload(content, fileName, entity.getFileType());
+        String fileName = entity.getFileName() != null ? entity.getFileName() : entity.getTitle() + ".txt";
+
+        // Nếu doc có file thật (s3Key) -> tải từ storage.
+        // Ngược lại (doc chỉ có nội dung editor) -> xuất nội dung dạng text.
+        if (entity.getS3Key() != null && !entity.getS3Key().isBlank()) {
+            byte[] content = storageService.downloadFile(entity.getS3Key());
+            return new FileDownload(content, fileName, entity.getFileType());
+        }
+
+        String textContent = stripHtml(entity.getContent());
+        return new FileDownload(
+                textContent.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                fileName,
+                "text/plain;charset=UTF-8");
+    }
+
+    private String stripHtml(String content) {
+        if (content == null) return "";
+        try {
+            com.fasterxml.jackson.databind.JsonNode node =
+                    new com.fasterxml.jackson.databind.ObjectMapper().readTree(content);
+            if (node.has("blocks")) {
+                StringBuilder sb = new StringBuilder();
+                for (com.fasterxml.jackson.databind.JsonNode block : node.get("blocks")) {
+                    if (block.has("text")) {
+                        sb.append(block.get("text").asText()).append("\n");
+                    }
+                }
+                return sb.toString().trim();
+            }
+            return content;
+        } catch (Exception e) {
+            // Nếu không phải JSON (HTML/plain text) -> strip tags đơn giản
+            return content.replaceAll("<[^>]+>", "").trim();
+        }
     }
 
     public record FileDownload(byte[] content, String fileName, String contentType) {}
 
     public DocumentDto mapToDto(DocumentEntity entity, String currentUserId, boolean isAdmin) {
-        boolean isOwner = entity.getOwnerId().equals(currentUserId);
-        boolean canSeeStatus = isAdmin || isOwner;
+        String ownerName = userRepository.findById(entity.getOwnerId())
+                .map(u -> u.getName())
+                .orElse(null);
 
         return DocumentDto.builder()
                 .id(entity.getId())
                 .title(entity.getTitle())
                 .type(entity.getType())
-                .status(canSeeStatus ? entity.getStatus().name() : null)
+                .status(entity.getStatus().name())
                 .ownerId(entity.getOwnerId())
+                .ownerName(ownerName)
                 .folderId(entity.getFolderId())
                 .content(entity.getContent())
                 .currentVersionId(entity.getCurrentVersionId())

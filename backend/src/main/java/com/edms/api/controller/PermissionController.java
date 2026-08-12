@@ -15,6 +15,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,7 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/documents")
-@Tag(name = "🔑 Permissions", description = "Quản lý quyền truy cập tài liệu: Grant, Update, Revoke")
+@Tag(name = "ðŸ”‘ Permissions", description = "Quáº£n lÃ½ quyá»n truy cáº­p tÃ i liá»‡u: Grant, Update, Revoke")
 @SecurityRequirement(name = "bearerAuth")
 public class PermissionController {
 
@@ -39,34 +40,35 @@ public class PermissionController {
 
     @GetMapping("/{id}/permissions")
     @Operation(
-        summary = "Xem danh sách quyền của tài liệu",
-        description = "Trả về danh sách người dùng và quyền tương ứng cho tài liệu. Mã tài liệu mẫu: **d1**"
+        summary = "Xem danh sÃ¡ch quyá»n cá»§a tÃ i liá»‡u",
+        description = "Tráº£ vá» danh sÃ¡ch ngÆ°á»i dÃ¹ng vÃ  quyá»n tÆ°Æ¡ng á»©ng cho tÃ i liá»‡u. MÃ£ tÃ i liá»‡u máº«u: **d1**"
     )
     public ResponseEntity<PermissionListResponse> getPermissions(
-            @Parameter(description = "ID tài liệu", example = "d1")
+            @Parameter(description = "ID tÃ i liá»‡u", example = "d1")
             @PathVariable("id") String id) {
         PermissionListResponse response = permissionService.getPermissions(id);
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/{id}/permissions")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'USER')")
     @Operation(
-        summary = "Gán quyền cho người dùng",
-        description = "Gán hoặc cập nhật quyền truy cập cho một người dùng trên tài liệu.\n\n" +
-            "**Các cấp quyền**: `OWNER` | `EDITOR` | `VIEWER`",
+        summary = "GÃ¡n quyá»n cho ngÆ°á»i dÃ¹ng",
+        description = "GÃ¡n hoáº·c cáº­p nháº­t quyá»n truy cáº­p cho má»™t ngÆ°á»i dÃ¹ng trÃªn tÃ i liá»‡u.\n\n" +
+            "**CÃ¡c cáº¥p quyá»n**: `OWNER` | `EDITOR` | `VIEWER`",
         requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
             content = @Content(
                 mediaType = "application/json",
                 examples = {
-                    @ExampleObject(name = "👁️ Cấp quyền VIEWER cho Viewer (u4)", value = "{\"userId\":\"u4\",\"role\":\"VIEWER\"}"),
-                    @ExampleObject(name = "✏️ Cấp quyền EDITOR cho Editor (u2)", value = "{\"userId\":\"u2\",\"role\":\"EDITOR\"}"),
-                    @ExampleObject(name = "📋 Cấp quyền VIEWER cho Manager (u3)", value = "{\"userId\":\"u3\",\"role\":\"VIEWER\"}")
+                    @ExampleObject(name = "ðŸ‘ï¸ Cáº¥p quyá»n VIEWER cho Viewer (u4)", value = "{\"userId\":\"u4\",\"role\":\"VIEWER\"}"),
+                    @ExampleObject(name = "âœï¸ Cáº¥p quyá»n EDITOR cho Editor (u2)", value = "{\"userId\":\"u2\",\"role\":\"EDITOR\"}"),
+                    @ExampleObject(name = "ðŸ“‹ Cáº¥p quyá»n VIEWER cho Manager (u3)", value = "{\"userId\":\"u3\",\"role\":\"VIEWER\"}")
                 }
             )
         )
     )
     public ResponseEntity<PermissionDto> grantPermission(
-            @Parameter(description = "ID tài liệu", example = "d1")
+            @Parameter(description = "ID tÃ i liá»‡u", example = "d1")
             @PathVariable("id") String id,
             @Valid @RequestBody GrantPermissionRequest request) {
         PermissionDto perm = permissionService.grantPermission(id, request);
@@ -74,46 +76,48 @@ public class PermissionController {
     }
 
     @PutMapping("/{id}/permissions/{permissionId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'USER')")
     @Operation(
-        summary = "Cập nhật quyền",
-        description = "Thay đổi cấp quyền của một user trên tài liệu. Mã permission mẫu: **p2**, **p3**",
+        summary = "Cáº­p nháº­t quyá»n",
+        description = "Thay Ä‘á»•i cáº¥p quyá»n cá»§a má»™t user trÃªn tÃ i liá»‡u. MÃ£ permission máº«u: **p2**, **p3**",
         requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
             content = @Content(
                 mediaType = "application/json",
                 examples = {
-                    @ExampleObject(name = "Nâng lên EDITOR", value = "{\"role\":\"EDITOR\"}"),
-                    @ExampleObject(name = "Hạ xuống VIEWER", value = "{\"role\":\"VIEWER\"}")
+                    @ExampleObject(name = "NÃ¢ng lÃªn EDITOR", value = "{\"role\":\"EDITOR\"}"),
+                    @ExampleObject(name = "Háº¡ xuá»‘ng VIEWER", value = "{\"role\":\"VIEWER\"}")
                 }
             )
         )
     )
     public ResponseEntity<PermissionDto> updatePermission(
-            @Parameter(description = "ID tài liệu", example = "d1") @PathVariable("id") String id,
-            @Parameter(description = "ID quyền cần cập nhật", example = "p2") @PathVariable("permissionId") String permissionId,
+            @Parameter(description = "ID tÃ i liá»‡u", example = "d1") @PathVariable("id") String id,
+            @Parameter(description = "ID quyá»n cáº§n cáº­p nháº­t", example = "p2") @PathVariable("permissionId") String permissionId,
             @Valid @RequestBody UpdatePermissionRequest request) {
         PermissionDto updated = permissionService.updatePermission(id, permissionId, request);
         return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{id}/permissions/{permissionId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'USER')")
     @Operation(
-        summary = "Thu hồi quyền",
-        description = "Xóa quyền truy cập của một user trên tài liệu. Mã permission mẫu: **p3**"
+        summary = "Thu há»“i quyá»n",
+        description = "XÃ³a quyá»n truy cáº­p cá»§a má»™t user trÃªn tÃ i liá»‡u. MÃ£ permission máº«u: **p3**"
     )
     public ResponseEntity<Void> revokePermission(
-            @Parameter(description = "ID tài liệu", example = "d1") @PathVariable("id") String id,
-            @Parameter(description = "ID quyền cần thu hồi", example = "p3") @PathVariable("permissionId") String permissionId) {
+            @Parameter(description = "ID tÃ i liá»‡u", example = "d1") @PathVariable("id") String id,
+            @Parameter(description = "ID quyá»n cáº§n thu há»“i", example = "p3") @PathVariable("permissionId") String permissionId) {
         permissionService.revokePermission(id, permissionId);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{id}/permissions/role")
     @Operation(
-        summary = "Xem quyền của bản thân trên tài liệu",
-        description = "Trả về role của người dùng đang đăng nhập trên tài liệu cụ thể"
+        summary = "Xem quyá»n cá»§a báº£n thÃ¢n trÃªn tÃ i liá»‡u",
+        description = "Tráº£ vá» role cá»§a ngÆ°á»i dÃ¹ng Ä‘ang Ä‘Äƒng nháº­p trÃªn tÃ i liá»‡u cá»¥ thá»ƒ"
     )
     public ResponseEntity<UserRoleResponse> getUserRoleForDocument(
-            @Parameter(description = "ID tài liệu", example = "d1")
+            @Parameter(description = "ID tÃ i liá»‡u", example = "d1")
             @PathVariable("id") String id,
             Authentication authentication) {
         String currentUserId = authentication != null ? authentication.getName() : "u1";

@@ -102,7 +102,7 @@ export default function SearchPage() {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <h1 className="text-2xl font-bold text-slate-800 mb-6">Search Documents</h1>
+      <h1 className="page-title mb-6">Search Documents</h1>
 
       {/* Search form */}
       <div className="card p-6 mb-6">

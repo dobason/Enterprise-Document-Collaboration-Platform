@@ -79,7 +79,7 @@ export default function SearchBar({ compact = false }) {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search documents\u2026"
+            placeholder=""
             autoComplete="off"
             spellCheck={false}
             className={`input pl-10 ${compact ? 'text-sm py-1.5' : ''}`}
