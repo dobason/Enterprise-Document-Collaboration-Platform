@@ -26,6 +26,10 @@ Parameters:
     Type: String
     NoEcho: true
     Description: Mật khẩu Aurora (lưu an toàn - không commit)
+  SnsTopicArn:
+    Type: String
+    Default: ""
+    Description: SNS topic ARN cho email notification
 
 Globals:
   Function:
@@ -53,6 +57,7 @@ Resources:
           DB_PASS_AWS: !Ref DbUserPass
           DB_NAME: edms
           AWS_S3_BUCKET: !Ref S3BucketName
+          SNS_TOPIC_ARN: !Ref SnsTopicArn
           # Credentials AWS: dùng IAM Role của Lambda (không hardcode key).
           # Chỉ cần IAM Role có quyền s3 + cognito-idp (xem AWS-COGNITO-REQUIREMENTS.md)
       Policies:
@@ -71,6 +76,11 @@ Resources:
                 - cognito-idp:InitiateAuth
                 - cognito-idp:RespondToAuthChallenge
                 - cognito-idp:GetUser
+              Resource: "*"
+            - Sid: SnsAccess
+              Effect: Allow
+              Action:
+                - sns:Publish
               Resource: "*"
       Events:
         ProxyApiRoot:

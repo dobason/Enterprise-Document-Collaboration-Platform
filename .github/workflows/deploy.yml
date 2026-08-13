@@ -102,4 +102,5 @@ jobs:
                AwsRegion=ap-southeast-1 \
                S3BucketName=${{ secrets.AWS_S3_BUCKET }} \
                DbUserName=${{ secrets.DB_USER_AWS }} \
-               DbUserPass=${{ secrets.DB_PASS_AWS }}"
+               DbUserPass=${{ secrets.DB_PASS_AWS }} \
+               SnsTopicArn=${{ secrets.SNS_TOPIC_ARN }}"
