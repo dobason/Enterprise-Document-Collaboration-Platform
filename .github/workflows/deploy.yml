@@ -103,4 +103,5 @@ jobs:
                S3BucketName=${{ secrets.AWS_S3_BUCKET }} \
                DbUserName=${{ secrets.DB_USER_AWS }} \
                DbUserPass=${{ secrets.DB_PASS_AWS }} \
-               SnsTopicArn=${{ secrets.SNS_TOPIC_ARN }}"
+               SnsTopicArn=${{ secrets.SNS_TOPIC_ARN }} \
+               BackendLambdaArn=${{ secrets.BACKEND_LAMBDA_ARN }}"

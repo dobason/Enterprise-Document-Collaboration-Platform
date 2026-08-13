@@ -1,0 +1,77 @@
+{
+  "Comment": "EDMS Document Approval Workflow",
+  "StartAt": "CaptureToken",
+  "States": {
+    "CaptureToken": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke.waitForTaskToken",
+      "Parameters": {
+        "FunctionName": "${BackendLambdaArn}",
+        "Payload": {
+          "edmsInternal": "captureToken",
+          "documentId.$": "$.documentId",
+          "taskToken.$": "$$.Task.Token"
+        }
+      },
+      "Next": "Decision"
+    },
+    "Decision": {
+      "Type": "Choice",
+      "Choices": [
+        { "Variable": "$.decision", "StringEquals": "APPROVED", "Next": "MarkApproved" },
+        { "Variable": "$.decision", "StringEquals": "REJECTED", "Next": "MarkRejected" }
+      ],
+      "Default": "MarkRejected"
+    },
+    "MarkApproved": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${BackendLambdaArn}",
+        "Payload": {
+          "edmsInternal": "markStatus",
+          "documentId.$": "$.documentId",
+          "decision.$": "$.decision",
+          "actedBy.$": "$.actedBy",
+          "reason.$": "$.reason"
+        }
+      },
+      "Next": "NotifyApproved"
+    },
+    "MarkRejected": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${BackendLambdaArn}",
+        "Payload": {
+          "edmsInternal": "markStatus",
+          "documentId.$": "$.documentId",
+          "decision.$": "$.decision",
+          "actedBy.$": "$.actedBy",
+          "reason.$": "$.reason"
+        }
+      },
+      "Next": "NotifyRejected"
+    },
+    "NotifyApproved": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${SnsTopicArn}",
+        "Subject": "EDMS - Document Approved",
+        "Message": "Your document has been APPROVED."
+      },
+      "End": true
+    },
+    "NotifyRejected": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${SnsTopicArn}",
+        "Subject": "EDMS - Document Rejected",
+        "Message": "Your document has been REJECTED."
+      },
+      "End": true
+    }
+  }
+}
