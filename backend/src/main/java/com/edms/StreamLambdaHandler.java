@@ -42,7 +42,7 @@ public class StreamLambdaHandler implements RequestStreamHandler {
                 "\"path\":\"/internal/workflow\"," +
                 "\"httpMethod\":\"POST\"," +
                 "\"headers\":{\"Content-Type\":\"application/json\"}," +
-                "\"multiValueHeaders\":{}," +
+                "\"multiValueHeaders\":{\"Content-Type\":[\"application/json\"]}," +
                 "\"queryStringParameters\":null," +
                 "\"multiValueQueryStringParameters\":null," +
                 "\"pathParameters\":null," +
