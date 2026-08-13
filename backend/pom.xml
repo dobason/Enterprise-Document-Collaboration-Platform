@@ -145,6 +145,12 @@
             <artifactId>sns</artifactId>
             <version>${aws.sdk.version}</version>
         </dependency>
+        <!-- AWS SDK v2 - Step Functions -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>sfn</artifactId>
+            <version>${aws.sdk.version}</version>
+        </dependency>
         <!-- JWT validation for Cognito (RS256 JWKS) -->
         <dependency>
             <groupId>com.nimbusds</groupId>

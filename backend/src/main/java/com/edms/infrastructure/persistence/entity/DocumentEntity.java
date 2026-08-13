@@ -62,6 +62,9 @@ public class DocumentEntity {
     @Column(name = "current_version_id", length = 64)
     private String currentVersionId;
 
+    @Column(name = "task_token", length = 1024)
+    private String taskToken;
+
     @Column(name = "created_at")
     private Instant createdAt;
 

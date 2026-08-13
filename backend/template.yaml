@@ -37,6 +37,105 @@ Globals:
     MemorySize: 2048 # Khuyến nghị cho Java Spring Boot để giảm Cold Start
 
 Resources:
+  DocumentApprovalStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Type: STANDARD
+      DefinitionString: !Sub
+        - |-
+          {
+            "Comment": "EDMS Document Approval Workflow",
+            "StartAt": "CaptureToken",
+            "States": {
+              "CaptureToken": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::lambda:invoke.waitForTaskToken",
+                "Parameters": {
+                  "FunctionName": "${EdmsApiFunction}",
+                  "Payload": {
+                    "edmsInternal": "captureToken",
+                    "documentId.$": "$.documentId",
+                    "taskToken.$": "$$.Task.Token"
+                  }
+                },
+                "Next": "Decision"
+              },
+              "Decision": {
+                "Type": "Choice",
+                "Choices": [
+                  { "Variable": "$.decision", "StringEquals": "APPROVED", "Next": "MarkApproved" },
+                  { "Variable": "$.decision", "StringEquals": "REJECTED", "Next": "MarkRejected" }
+                ],
+                "Default": "MarkRejected"
+              },
+              "MarkApproved": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::lambda:invoke",
+                "Parameters": {
+                  "FunctionName": "${EdmsApiFunction}",
+                  "Payload": {
+                    "edmsInternal": "markStatus",
+                    "documentId.$": "$.documentId",
+                    "decision.$": "$.decision",
+                    "actedBy.$": "$.actedBy",
+                    "reason.$": "$.reason"
+                  }
+                },
+                "Next": "NotifyApproved"
+              },
+              "MarkRejected": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::lambda:invoke",
+                "Parameters": {
+                  "FunctionName": "${EdmsApiFunction}",
+                  "Payload": {
+                    "edmsInternal": "markStatus",
+                    "documentId.$": "$.documentId",
+                    "decision.$": "$.decision",
+                    "actedBy.$": "$.actedBy",
+                    "reason.$": "$.reason"
+                  }
+                },
+                "Next": "NotifyRejected"
+              },
+              "NotifyApproved": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::sns:publish",
+                "Parameters": {
+                  "TopicArn": "${SnsTopicArn}",
+                  "Subject": "EDMS - Document Approved",
+                  "Message": "Your document \"${DocumentTitle}\" has been APPROVED."
+                },
+                "End": true
+              },
+              "NotifyRejected": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::sns:publish",
+                "Parameters": {
+                  "TopicArn": "${SnsTopicArn}",
+                  "Subject": "EDMS - Document Rejected",
+                  "Message": "Your document \"${DocumentTitle}\" has been REJECTED."
+                },
+                "End": true
+              }
+            }
+          }
+        - EdmsApiFunction: !GetAtt EdmsApiFunction.Arn
+          SnsTopicArn: !Ref SnsTopicArn
+          DocumentTitle: "document"
+      Policies:
+        - Statement:
+            - Sid: InvokeBackendLambda
+              Effect: Allow
+              Action:
+                - lambda:InvokeFunction
+              Resource: !GetAtt EdmsApiFunction.Arn
+            - Sid: PublishToSns
+              Effect: Allow
+              Action:
+                - sns:Publish
+              Resource: !Ref SnsTopicArn
+
   EdmsApiFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -58,6 +157,7 @@ Resources:
           DB_NAME: edms
           AWS_S3_BUCKET: !Ref S3BucketName
           SNS_TOPIC_ARN: !Ref SnsTopicArn
+          STEP_FUNCTIONS_ARN: !Ref DocumentApprovalStateMachine
           # Credentials AWS: dùng IAM Role của Lambda (không hardcode key).
           # Chỉ cần IAM Role có quyền s3 + cognito-idp (xem AWS-COGNITO-REQUIREMENTS.md)
       Policies:
@@ -82,6 +182,13 @@ Resources:
               Action:
                 - sns:Publish
               Resource: "*"
+            - Sid: StepFunctionsAccess
+              Effect: Allow
+              Action:
+                - states:StartExecution
+                - states:SendTaskSuccess
+                - states:SendTaskFailure
+              Resource: !Ref DocumentApprovalStateMachine
       Events:
         ProxyApiRoot:
           Type: Api
