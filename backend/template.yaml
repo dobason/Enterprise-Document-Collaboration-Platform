@@ -78,7 +78,6 @@ Resources:
                 "documentId.$": "$.documentId"
                 "decision.$": "$.decision"
                 "actedBy.$": "$.actedBy"
-                "reason.$": "$.reason"
             Next: NotifyApproved
           MarkRejected:
             Type: Task
