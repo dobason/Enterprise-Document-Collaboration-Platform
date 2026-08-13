@@ -2,7 +2,7 @@
 
 Hệ thống quản lý & cộng tác tài liệu doanh nghiệp (Enterprise Document Management System), xây dựng theo kiến trúc **Serverless trên AWS**. Backend **Spring Boot (Java 17)** đóng gói thành **1 Lambda monolith**, frontend **React 18** host trên **Amplify**, cơ sở dữ liệu **Aurora MySQL**.
 
-> **Trạng thái:** ✅ Đã triển khai & chạy trên AWS (API Gateway + Lambda + Aurora + S3 + Cognito + SNS + Amplify), CI/CD tự động qua GitHub Actions + SAM.
+> **Trạng thái:** ✅ Đã triển khai & chạy trên AWS (API Gateway + Lambda + Aurora + S3 + Cognito + Step Functions + SNS + Amplify), CI/CD tự động qua GitHub Actions + SAM.
 
 ---
 
@@ -28,7 +28,7 @@ EDMS giải quyết các vấn đề trên bằng một hệ thống serverless:
 
 ### Các chức năng chính
 
-Đăng nhập (Cognito) · Upload/tải tài liệu (S3) · Quản lý metadata (Aurora MySQL) · Danh sách tài liệu & thư mục · Tạo thư mục · Phân quyền tài liệu (OWNER/EDITOR/VIEWER) · Quy trình phê duyệt (approve/reject) · Thông báo email (SNS) · Quản lý phiên bản tài liệu (version + rollback) · Gắn thẻ (tags) · Tìm kiếm theo tên/loại · Chia sẻ bằng link · Dashboard thống kê · Quản lý người dùng & phòng ban · **OCR** trích xuất văn bản · Ghi audit log (CloudWatch) · CI/CD (GitHub Actions + AWS SAM)
+Đăng nhập (Cognito) · Upload/tải tài liệu (S3) · Quản lý metadata (Aurora MySQL) · Danh sách tài liệu & thư mục · Tạo thư mục · Phân quyền tài liệu (OWNER/EDITOR/VIEWER) · Quy trình phê duyệt qua **Step Functions** (submit/approve/reject + waitForTaskToken) · Thông báo email (SNS) · Quản lý phiên bản tài liệu (version + rollback) · Gắn thẻ (tags) · Tìm kiếm theo tên/loại · Chia sẻ bằng link · Dashboard thống kê · Quản lý người dùng & phòng ban · **OCR** trích xuất văn bản · Ghi audit log (CloudWatch) · CI/CD (GitHub Actions + AWS SAM)
 
 > Kiến trúc, sơ đồ luồng, lý do chọn dịch vụ: `EDMS-Serverless-Roadmap.md`.
 > Kế hoạch thời gian, phân vai trò, task theo tuần: `EDMS-Master-Checklist.md`.
@@ -37,7 +37,7 @@ EDMS giải quyết các vấn đề trên bằng một hệ thống serverless:
 
 ## 2. Công nghệ sử dụng (Tech Stack)
 
-### AWS Services (9 dịch vụ đang dùng)
+### AWS Services (10 dịch vụ đang dùng)
 
 | Dịch vụ                              | Vai trò                                                              |
 | -------------------------------------- | ---------------------------------------------------------------------- |
@@ -46,6 +46,7 @@ EDMS giải quyết các vấn đề trên bằng một hệ thống serverless:
 | **Aurora MySQL**                 | Metadata quan hệ: Users, Departments, Documents, Versions, Folders, Permissions, Tags, Shares, ApprovalHistory, AuditLog, OcrResult |
 | **AWS Lambda**                   | Chạy Spring Boot backend monolith (Java 17, fat-jar)              |
 | **Amazon API Gateway**           | Cổng REST API, tích hợp Lambda Proxy                              |
+| **AWS Step Functions**           | **Orchestrate quy trình phê duyệt** (waitForTaskToken, Choice, SNS publish) |
 | **Amazon SNS**                   | Thông báo email khi có sự kiện duyệt tài liệu (approve/reject) |
 | **Amazon CloudWatch**            | Log & monitoring Lambda                                            |
 | **AWS Amplify**                  | Hosting frontend React (HTTPS)                                     |
@@ -55,7 +56,7 @@ EDMS giải quyết các vấn đề trên bằng một hệ thống serverless:
 
 | Thành phần                 | Công nghệ                                                              |
 | ---------------------------- | ----------------------------------------------------------------------- |
-| Backend (Lambda)             | **Java 17** (Spring Boot 3.2.x), Spring Web, Spring Data JPA, Spring Security, AWS SDK v2 (s3, cognito-idp, sns) |
+| Backend (Lambda)             | **Java 17** (Spring Boot 3.2.x), Spring Web, Spring Data JPA, Spring Security, AWS SDK v2 (s3, cognito-idp, sns, sfn) |
 | Data access (Aurora)         | **Spring Data JPA** (Hibernate) — driver JDBC MySQL                      |
 | Build tool                   | **Maven** (Spring Boot plugin + `maven-shade-plugin`)                    |
 | Infrastructure as Code       | **AWS SAM** (`template.yaml`) + **CloudFormation**                     |
@@ -116,6 +117,7 @@ erDiagram
         string departmentId FK
         string folderId FK
         string status "DRAFT/PENDING/APPROVED/REJECTED"
+        string taskToken "Step Functions task token"
         datetime createdAt
         datetime updatedAt
         datetime deletedAt "soft delete"
@@ -164,6 +166,40 @@ erDiagram
 
 ---
 
+## 3.1 Quy trình phê duyệt (AWS Step Functions)
+
+Quy trình phê duyệt tài liệu được **điều phối bởi AWS Step Functions** (state machine `DocumentApprovalStateMachine`) — đúng pattern *human approval* với **waitForTaskToken**:
+
+```
+USER submit ──▶ Lambda: startExecution({documentId})
+                     │
+                     ▼
+  [CaptureToken: Task .waitForTaskToken] ── Lambda lưu task token vào DB, treo chờ
+                     │           chờ SendTaskSuccess / SendTaskFailure
+                     ▼
+        [Decision: Choice]
+        APPROVED │            │ REJECTED
+                ▼            ▼
+        [MarkApproved]  [MarkRejected]   (Lambda cập nhật DB status + history)
+                │            │
+                ▼            ▼
+        [NotifyApproved] [NotifyRejected] (Step Functions → SNS: publish email)
+                └───── End ─────┘
+```
+
+**Luồng thực thi:**
+
+1. **Submit** — API `/approval/submit` → Lambda set `PENDING` + `startExecution` lên Step Functions.
+2. **CaptureToken** — state `CaptureToken` (`.waitForTaskToken`) invoke Lambda lưu `task_token` vào bảng `documents`, rồi **treo** chờ quyết định của người duyệt (có thể chờ lâu không giới hạn — vượt qua timeout 15 phút của Lambda).
+3. **Approve/Reject** — API gọi `SendTaskSuccess(token, {decision, actedBy, reason})` → state machine "thức dậy".
+4. **Choice** — rẽ nhánh theo `decision`.
+5. **MarkStatus** — Step Functions invoke Lambda (`/internal/workflow`) cập nhật DB `status = APPROVED/REJECTED` + ghi lịch sử.
+6. **Notify** — Step Functions trực tiếp gọi **SNS publish** để gửi email thông báo.
+
+> Ưu điểm so với xử lý inline trong Lambda: quy trình có **lịch sử execution rõ ràng** (dễ trace/audit), có thể **chờ con người duyệt không giới hạn**, mỗi bước đều **retry/kiểm soát lỗi**, và được trực quan hóa trong AWS Console (Step Functions → State machines → Graph view).
+
+---
+
 ## 4. Cấu trúc thư mục
 
 ```
@@ -174,7 +210,7 @@ Enterprise-Document-Collaboration-Platform/
 │   └── src/
 │       ├── main/java/com/edms/
 │       │   ├── EdmsApplication.java    # Spring Boot entrypoint
-│       │   ├── StreamLambdaHandler.java # AWS Lambda adapter (Spring + API Gateway)
+│       │   ├── StreamLambdaHandler.java # AWS Lambda adapter (API Gateway + Step Functions events)
 │       │   ├── api/                    # REST Controllers + DTO + Exception (tầng giao tiếp)
 │       │   ├── application/            # Use cases (services) + ports (interfaces)
 │       │   ├── domain/                 # Entities + enums + domain events
@@ -184,7 +220,7 @@ Enterprise-Document-Collaboration-Platform/
 │           ├── application-aws.yml     # config profile aws (Lambda)
 │           ├── application-mysql.yml   # config profile mysql (local)
 │           ├── data.sql                # seed data (18 users, docs, permissions)
-│           └── db/migration/V1__init_schema.sql  # Flyway schema
+│           └── db/migration/           # Flyway schema (V1__init_schema.sql, V2__add_task_token.sql)
 ├── frontend/                           # React 18 SPA
 │   └── src/
 │       ├── api/                        # axios + auth api (Cognito)
@@ -200,20 +236,20 @@ Enterprise-Document-Collaboration-Platform/
 
 | Package             | Vai trò                                                        |
 | -------------------- | --------------------------------------------------------------- |
-| `api/controller`   | REST endpoints: Auth, Document, Folder, Version, Permission, Share, Tag, Search, Approval, Dashboard, User, Department, Upload, OCR |
+| `api/controller`   | REST endpoints: Auth, Document, Folder, Version, Permission, Share, Tag, Search, Approval, Dashboard, User, Department, Upload, OCR + `WorkflowInternalController` (Step Functions callback) |
 | `api/dto`          | Request/Response objects                                         |
 | `api/exception`    | Global exception handler + custom exceptions                     |
 | `application/ports`| Interfaces: Authentication, Storage, Notification, Workflow, Audit, Ocr, SecretProvider, EventPublisher |
 | `application/service` | Application use cases (business logic orchestration)          |
 | `domain`           | Entities, enums (UserRole, PermissionRole, DocumentStatus, ApprovalAction...), domain events |
-| `infrastructure/aws`  | AWS adapters: Cognito auth/JWT, S3 storage, SNS notification    |
+| `infrastructure/aws`  | AWS adapters: Cognito auth/JWT, S3 storage, SNS notification, **Step Functions workflow** |
 | `infrastructure/adapters/local` | Local mocks cho dev (mysql profile)               |
 | `infrastructure/persistence` | JPA entities + repositories                          |
 | `infrastructure/security` | JWT filter, Spring Security config, token validation           |
 
 **2 profile chạy:**
-- `aws` (Lambda trên AWS): Cognito + S3 + SNS + Aurora
-- `mysql` (local dev): mọi adapter AWS thay bằng mock local, dùng MySQL local
+- `aws` (Lambda trên AWS): Cognito + S3 + SNS + **Step Functions** + Aurora (`StepFunctionsWorkflowService`)
+- `mysql` (local dev): mọi adapter AWS thay bằng mock local (`LocalWorkflowService`), dùng MySQL local
 
 ---
 
@@ -274,6 +310,7 @@ Hệ thống deploy tự động bằng **GitHub Actions** khi push lên nhánh 
 | S3 bucket                   | `edms-docs-bucket-319602346700-ap-southeast-1-an`                        |
 | Cognito User Pool           | `ap-southeast-1_QCwP39T1z` (client `2793dbk113fvr5eq61fkkl1432`)        |
 | SNS topic                   | `edms-notifications` (email notification)                                |
+| Step Functions              | `DocumentApprovalStateMachine` (orchestrate approval workflow)           |
 | Amplify                     | `main.d3o9he2i74kozn.amplifyapp.com`                                     |
 | CloudFormation stack        | `edms-lambda-stack`                                                      |
 
