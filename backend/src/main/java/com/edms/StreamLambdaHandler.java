@@ -3,7 +3,6 @@ package com.edms;
 import com.amazonaws.serverless.exceptions.ContainerInitializationException;
 import com.amazonaws.serverless.proxy.model.AwsProxyRequest;
 import com.amazonaws.serverless.proxy.model.AwsProxyResponse;
-import com.amazonaws.serverless.proxy.model.SingleValueHeaders;
 import com.amazonaws.serverless.proxy.spring.SpringBootLambdaContainerHandler;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestStreamHandler;
@@ -38,16 +37,30 @@ public class StreamLambdaHandler implements RequestStreamHandler {
 
         // Event từ AWS Step Functions (lambda:invoke) có marker "edmsInternal"
         if (isStepFunctionsEvent(raw)) {
-            AwsProxyRequest internal = new AwsProxyRequest();
-            internal.setHttpMethod("POST");
-            internal.setPath("/internal/workflow");
-            internal.setBody(raw);
-            SingleValueHeaders headers = new SingleValueHeaders();
-            headers.put("Content-Type", "application/json");
-            internal.setHeaders(headers);
-            AwsProxyResponse resp = handler.proxy(internal, context);
-            outputStream.write(resp.getBody() != null ? resp.getBody().getBytes(StandardCharsets.UTF_8)
-                    : new byte[0]);
+            String internalEvent = "{" +
+                "\"resource\":\"/internal/workflow\"," +
+                "\"path\":\"/internal/workflow\"," +
+                "\"httpMethod\":\"POST\"," +
+                "\"headers\":{\"Content-Type\":\"application/json\"}," +
+                "\"multiValueHeaders\":{}," +
+                "\"queryStringParameters\":null," +
+                "\"multiValueQueryStringParameters\":null," +
+                "\"pathParameters\":null," +
+                "\"stageVariables\":null," +
+                "\"requestContext\":{" +
+                    "\"protocol\":\"HTTP/1.1\"," +
+                    "\"httpMethod\":\"POST\"," +
+                    "\"path\":\"/internal/workflow\"," +
+                    "\"stage\":\"Prod\"," +
+                    "\"requestId\":\"workflow-callback\"," +
+                    "\"resourcePath\":\"/internal/workflow\"," +
+                    "\"identity\":{\"sourceIp\":\"0.0.0.0\"}" +
+                "}," +
+                "\"body\":" + OBJECT_MAPPER.writeValueAsString(raw) + "," +
+                "\"isBase64Encoded\":false" +
+            "}";
+            handler.proxyStream(new ByteArrayInputStream(internalEvent.getBytes(StandardCharsets.UTF_8)),
+                    outputStream, context);
             return;
         }
 
