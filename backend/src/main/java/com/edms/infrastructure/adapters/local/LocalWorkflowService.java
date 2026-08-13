@@ -3,6 +3,7 @@ package com.edms.infrastructure.adapters.local;
 import com.edms.api.exception.BadRequestException;
 import com.edms.api.exception.ResourceNotFoundException;
 import com.edms.application.ports.AuditService;
+import com.edms.application.ports.NotificationService;
 import com.edms.application.ports.WorkflowService;
 import com.edms.domain.enums.ApprovalAction;
 import com.edms.domain.enums.AuditAction;
@@ -11,6 +12,7 @@ import com.edms.infrastructure.persistence.entity.ApprovalHistoryEntity;
 import com.edms.infrastructure.persistence.entity.DocumentEntity;
 import com.edms.infrastructure.persistence.repository.ApprovalHistoryJpaRepository;
 import com.edms.infrastructure.persistence.repository.DocumentJpaRepository;
+import com.edms.infrastructure.persistence.repository.UserJpaRepository;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,13 +27,19 @@ public class LocalWorkflowService implements WorkflowService {
     private final DocumentJpaRepository documentRepository;
     private final ApprovalHistoryJpaRepository approvalHistoryRepository;
     private final AuditService auditService;
+    private final NotificationService notificationService;
+    private final UserJpaRepository userRepository;
 
     public LocalWorkflowService(DocumentJpaRepository documentRepository,
                                 ApprovalHistoryJpaRepository approvalHistoryRepository,
-                                AuditService auditService) {
+                                AuditService auditService,
+                                NotificationService notificationService,
+                                UserJpaRepository userRepository) {
         this.documentRepository = documentRepository;
         this.approvalHistoryRepository = approvalHistoryRepository;
         this.auditService = auditService;
+        this.notificationService = notificationService;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -71,6 +79,7 @@ public class LocalWorkflowService implements WorkflowService {
 
         saveHistory(documentId, ApprovalAction.APPROVE, oldStatus, DocumentStatus.APPROVED, approvedBy);
         auditService.log(documentId, AuditAction.APPROVE, approvedBy, "Approved document");
+        notifyOwner(doc, "Document Approved", "Your document \"" + doc.getTitle() + "\" has been APPROVED by " + approvedBy);
     }
 
     @Override
@@ -91,6 +100,17 @@ public class LocalWorkflowService implements WorkflowService {
 
         saveHistory(documentId, ApprovalAction.REJECT, oldStatus, DocumentStatus.REJECTED, rejectedBy);
         auditService.log(documentId, AuditAction.REJECT, rejectedBy, "Rejected document: " + reason);
+        notifyOwner(doc, "Document Rejected", "Your document \"" + doc.getTitle() + "\" has been REJECTED by " + rejectedBy + ". Reason: " + reason);
+    }
+
+    private void notifyOwner(DocumentEntity doc, String subject, String message) {
+        try {
+            userRepository.findById(doc.getOwnerId())
+                    .map(u -> u.getEmail())
+                    .ifPresent(email -> notificationService.sendNotification(email, subject, message));
+        } catch (Exception e) {
+            // notification là best-effort, không làm hỏng luồng chính
+        }
     }
 
     private void saveHistory(String documentId, ApprovalAction action, DocumentStatus fromStatus, DocumentStatus toStatus, String user) {

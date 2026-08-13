@@ -30,6 +30,10 @@ aws:
     client-id: ${COGNITO_CLIENT_ID:}
     access-key: ${AWS_ACCESS_KEY_ID:}
     secret-key: ${AWS_SECRET_ACCESS_KEY:}
+  sns:
+    topic-arn: ${SNS_TOPIC_ARN:}
+    access-key: ${AWS_ACCESS_KEY_ID:}
+    secret-key: ${AWS_SECRET_ACCESS_KEY:}
 
 jwt:
   secret: edmsEnterpriseSecretKeyForJwtAuthenticationTokenSigningMustBeVeryLong32BytesOrMore!
