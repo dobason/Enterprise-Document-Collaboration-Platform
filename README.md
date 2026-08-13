@@ -69,6 +69,16 @@ EDMS giải quyết các vấn đề trên bằng một hệ thống serverless:
 
 ---
 
+## 2.1 Kiến trúc hệ thống
+
+Sơ đồ kiến trúc tổng thể của EDMS (Cloud-Native Serverless) trên AWS:
+
+![Kiến trúc EDMS](Architecture%20Overview-EDMS%20-%20Kiến%20trúc%20Cloud-Native%20Serverless.drawio.png)
+
+> File thiết kế gốc (editable): `Architecture Overview-EDMS - Kiến trúc Cloud-Native Serverless.drawio.xml`.
+
+---
+
 ## 3. Mô hình dữ liệu (ERD)
 
 Hệ thống dùng **1 cơ sở dữ liệu quan hệ Aurora MySQL** (schema chuẩn hóa) — mọi dữ liệu metadata đều ở đây.
