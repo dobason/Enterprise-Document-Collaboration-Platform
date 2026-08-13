@@ -188,7 +188,7 @@ Resources:
                 - states:StartExecution
                 - states:SendTaskSuccess
                 - states:SendTaskFailure
-              Resource: !Ref DocumentApprovalStateMachine
+              Resource: "*"
       Events:
         ProxyApiRoot:
           Type: Api
