@@ -44,7 +44,7 @@ Resources:
     Type: AWS::Serverless::StateMachine
     Properties:
       Type: STANDARD
-      DefinitionString: !Sub
+      Definition: !Sub
         - |-
           {
             "Comment": "EDMS Document Approval Workflow",
