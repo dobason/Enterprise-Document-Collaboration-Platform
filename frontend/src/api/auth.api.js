@@ -57,8 +57,29 @@ function cognitoLogin(email, password) {
       onFailure: (err) => {
         reject(new Error(err?.message || "Đăng nhập thất bại"));
       },
-      newPasswordRequired: () => {
-        reject(new Error("Cần đổi mật khẩu tạm thời trước khi đăng nhập"));
+      newPasswordRequired: (userAttributes, requiredAttributes) => {
+        // User mới được admin tạo với mật khẩu tạm (Password123!)
+        // → tự động đổi sang chính mật khẩu vừa nhập, rồi đăng nhập tiếp.
+        cognitoUser.completeNewPasswordChallenge(password, userAttributes, {
+          onSuccess: (session) => {
+            const idToken = session.getIdToken().getJwtToken();
+            const payload = JSON.parse(atob(idToken.split(".")[1]));
+            const groups = payload["cognito:groups"] || [];
+            const user = {
+              id: payload.sub,
+              email: payload.email || email,
+              name: payload.name || payload.email || email,
+              role: groups.includes("ADMIN") ? "ADMIN" : groups.includes("MANAGER") ? "MANAGER" : "USER",
+              department: groups[0] || null,
+            };
+            localStorage.setItem(TOKEN_KEY, idToken);
+            localStorage.setItem(USER_KEY, JSON.stringify(user));
+            resolve({ token: idToken, user });
+          },
+          onFailure: (err) => {
+            reject(new Error(err?.message || "Đổi mật khẩu tạm thời thất bại"));
+          },
+        });
       },
     });
   });
