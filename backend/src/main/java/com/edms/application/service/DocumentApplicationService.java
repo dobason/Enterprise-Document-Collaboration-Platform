@@ -122,7 +122,7 @@ public class DocumentApplicationService {
                 .id(docId)
                 .title(request.getTitle())
                 .type(request.getType())
-                .status(DocumentStatus.PENDING)
+                .status(DocumentStatus.DRAFT)
                 .ownerId(currentUserId != null ? currentUserId : "u1")
                 .folderId(request.getFolderId())
                 .content(request.getContent())
