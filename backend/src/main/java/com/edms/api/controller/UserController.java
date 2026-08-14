@@ -2,6 +2,7 @@ package com.edms.api.controller;
 
 import com.edms.api.dto.UserDto;
 import com.edms.api.dto.UserListResponse;
+import com.edms.domain.enums.UserRole;
 import com.edms.infrastructure.persistence.entity.UserEntity;
 import com.edms.infrastructure.persistence.entity.DepartmentEntity;
 import com.edms.infrastructure.persistence.repository.UserJpaRepository;
@@ -9,11 +10,18 @@ import com.edms.infrastructure.persistence.repository.DepartmentJpaRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+import software.amazon.awssdk.services.cognitoidentityprovider.CognitoIdentityProviderClient;
+import software.amazon.awssdk.services.cognitoidentityprovider.model.AdminAddUserToGroupRequest;
+import software.amazon.awssdk.services.cognitoidentityprovider.model.AdminCreateUserRequest;
+import software.amazon.awssdk.services.cognitoidentityprovider.model.AttributeType;
+import software.amazon.awssdk.services.cognitoidentityprovider.model.DeliveryMediumType;
+import software.amazon.awssdk.services.cognitoidentityprovider.model.MessageActionType;
 
 import java.util.List;
 import java.util.Map;
@@ -30,11 +38,19 @@ public class UserController {
     private final UserJpaRepository userRepository;
     private final DepartmentJpaRepository departmentRepository;
     private final PasswordEncoder passwordEncoder;
+    private final CognitoIdentityProviderClient cognitoClient;
+    private final String userPoolId;
 
-    public UserController(UserJpaRepository userRepository, DepartmentJpaRepository departmentRepository, PasswordEncoder passwordEncoder) {
+    public UserController(UserJpaRepository userRepository,
+                          DepartmentJpaRepository departmentRepository,
+                          PasswordEncoder passwordEncoder,
+                          CognitoIdentityProviderClient cognitoClient,
+                          @Value("${aws.cognito.user-pool-id}") String userPoolId) {
         this.userRepository = userRepository;
         this.departmentRepository = departmentRepository;
         this.passwordEncoder = passwordEncoder;
+        this.cognitoClient = cognitoClient;
+        this.userPoolId = userPoolId;
     }
 
     @GetMapping
@@ -59,12 +75,47 @@ public class UserController {
             throw new IllegalArgumentException("Email is already registered");
         }
 
+        String email = body.get("email");
+        String name = body.getOrDefault("name", email);
+        String role = body.getOrDefault("role", "USER");
+
+        // 1. Tạo user trong Amazon Cognito (mật khẩu mặc định, buộc đổi lần đầu)
+        try {
+            cognitoClient.adminCreateUser(AdminCreateUserRequest.builder()
+                    .userPoolId(userPoolId)
+                    .username(email)
+                    .temporaryPassword("Password123!")
+                    .messageAction(MessageActionType.SUPPRESS)
+                    .desiredDeliveryMediums(DeliveryMediumType.EMAIL)
+                    .userAttributes(
+                            AttributeType.builder().name("email").value(email).build(),
+                            AttributeType.builder().name("email_verified").value("true").build(),
+                            AttributeType.builder().name("name").value(name).build()
+                    )
+                    .build());
+        } catch (Exception e) {
+            throw new IllegalStateException("Không thể tạo user trong Cognito: " + e.getMessage());
+        }
+
+        // 2. Gán group trong Cognito tương ứng với role (ADMIN / MANAGER / USER)
+        String cognitoGroup = role;
+        try {
+            cognitoClient.adminAddUserToGroup(AdminAddUserToGroupRequest.builder()
+                    .userPoolId(userPoolId)
+                    .username(email)
+                    .groupName(cognitoGroup)
+                    .build());
+        } catch (Exception e) {
+            throw new IllegalStateException("Không thể gán group " + cognitoGroup + ": " + e.getMessage());
+        }
+
+        // 3. Lưu user vào DB (Aurora)
         UserEntity user = UserEntity.builder()
                 .id(UUID.randomUUID().toString())
-                .email(body.get("email"))
-                .name(body.get("name"))
+                .email(email)
+                .name(name)
                 .password(passwordEncoder.encode("Password123!"))
-                .role(com.edms.domain.enums.UserRole.valueOf(body.getOrDefault("role", "VIEWER")))
+                .role(UserRole.valueOf(role))
                 .createdAt(java.time.Instant.now())
                 .updatedAt(java.time.Instant.now())
                 .build();
