@@ -163,6 +163,10 @@ Resources:
                 - cognito-idp:InitiateAuth
                 - cognito-idp:RespondToAuthChallenge
                 - cognito-idp:GetUser
+                - cognito-idp:AdminCreateUser
+                - cognito-idp:AdminAddUserToGroup
+                - cognito-idp:AdminGetUser
+                - cognito-idp:ListUsers
               Resource: "*"
             - Sid: SnsAccess
               Effect: Allow
