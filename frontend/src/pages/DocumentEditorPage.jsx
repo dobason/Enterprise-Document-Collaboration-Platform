@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { EditorState, convertFromRaw, convertToRaw, ContentState, convertFromHTML } from 'draft-js';
 import { getDocument, updateDocument } from '../api/documents.api';
 import { getVersions, createVersion } from '../api/versions.api';
-import { approveDocument, rejectDocument } from '../api/approval.api';
+import { approveDocument, rejectDocument, submitForApproval } from '../api/approval.api';
 import { getUserRole } from '../api/permissions.api';
 import { getToken } from '../api/client';
 import { CONFIG } from '../api/config';
@@ -27,6 +27,8 @@ import {
   Download,
   ThumbsUp,
   ThumbsDown,
+  Send,
+  History,
 } from 'lucide-react';
 
 export default function DocumentEditorPage() {
@@ -413,6 +415,23 @@ export default function DocumentEditorPage() {
             }`}>
               {doc.status}
             </span>
+          )}
+
+          {doc.status === 'DRAFT' && (user?.role === 'ADMIN' || !isViewer) && (
+            <button
+              onClick={async () => {
+                try {
+                  const updatedDoc = await submitForApproval(doc.id);
+                  setDoc(updatedDoc);
+                  addToast('Document submitted for approval', 'success');
+                } catch (e) {
+                  addToast(e.message || 'Submit failed', 'error');
+                }
+              }}
+              className="btn btn-primary"
+            >
+              <Send size={16} /> Submit for Approval
+            </button>
           )}
 
           {(user?.role === 'ADMIN' || user?.role === 'MANAGER') && doc.status === 'PENDING' && (
