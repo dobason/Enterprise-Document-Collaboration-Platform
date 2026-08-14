@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 
 const STATUS_CONFIG = {
+  DRAFT: { color: 'badge-draft', icon: Clock },
   PENDING: { color: 'badge-pending', icon: Clock },
   APPROVED: { color: 'badge-approved', icon: CheckCircle },
   REJECTED: { color: 'badge-rejected', icon: XCircle },
@@ -123,7 +124,8 @@ export default function ApprovalPage() {
 
   const StatusIcon = STATUS_CONFIG[doc.status]?.icon || Clock;
   const isAdmin = user?.role === 'ADMIN';
-  const canSubmit = false; // documents start as PENDING, no need to submit
+  const isOwnerOrEditor = userRole === 'OWNER' || userRole === 'EDITOR';
+  const canSubmit = doc.status === 'DRAFT' && (isAdmin || isOwnerOrEditor);
   const canApprove = (isAdmin || userRole === 'MANAGER') && doc.status === 'PENDING';
   const canReject = (isAdmin || userRole === 'MANAGER') && doc.status === 'PENDING';
 
