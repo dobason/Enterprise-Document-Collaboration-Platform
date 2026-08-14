@@ -16,7 +16,10 @@ import software.amazon.awssdk.services.cognitoidentityprovider.model.AuthFlowTyp
 import software.amazon.awssdk.services.cognitoidentityprovider.model.AuthenticationResultType;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.InitiateAuthRequest;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.InitiateAuthResponse;
+import software.amazon.awssdk.services.cognitoidentityprovider.model.ChallengeNameType;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.NotAuthorizedException;
+import software.amazon.awssdk.services.cognitoidentityprovider.model.RespondToAuthChallengeRequest;
+import software.amazon.awssdk.services.cognitoidentityprovider.model.RespondToAuthChallengeResponse;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.UserNotFoundException;
 
 import java.time.Instant;
@@ -57,7 +60,25 @@ public class CognitoAuthenticationService implements AuthenticationService {
 
             AuthenticationResultType authResult = response.authenticationResult();
             if (authResult == null) {
-                throw new UnauthorizedException("Yêu cầu đăng nhập chưa hoàn tất (có thể cần đổi mật khẩu hoặc MFA)");
+                // Nếu Cognito trả về challenge (vd NEW_PASSWORD_REQUIRED), tự động đổi mật khẩu
+                // sang chính mật khẩu vừa dùng để đăng nhập, rồi lấy token.
+                if (response.challengeName() == ChallengeNameType.NEW_PASSWORD_REQUIRED
+                        && response.session() != null) {
+                    Map<String, String> challengeResponses = new HashMap<>();
+                    challengeResponses.put("USERNAME", request.getEmail());
+                    challengeResponses.put("NEW_PASSWORD", request.getPassword());
+                    RespondToAuthChallengeResponse challengeResp = cognitoClient.respondToAuthChallenge(
+                            RespondToAuthChallengeRequest.builder()
+                                    .challengeName(ChallengeNameType.NEW_PASSWORD_REQUIRED)
+                                    .clientId(clientId)
+                                    .challengeResponses(challengeResponses)
+                                    .session(response.session())
+                                    .build());
+                    authResult = challengeResp.authenticationResult();
+                }
+                if (authResult == null) {
+                    throw new UnauthorizedException("Yêu cầu đăng nhập chưa hoàn tất (có thể cần đổi mật khẩu hoặc MFA)");
+                }
             }
 
             String idToken = authResult.idToken();
